@@ -13,11 +13,11 @@
         <!-- 歡迎畫面 -->
         <div class="welcome-screen active">
             <h2>歡迎使用</h2>
-            <p>歡迎使用保險考試測驗系統！本系統將從選定的試卷中隨機抽取10題供您作答。</p>
+            <p>歡迎使用保險考試測驗系統！本系統將從選定的試卷中隨機生成選擇題供您作答。</p>
             <p>測驗特點：</p>
             <ul>
                 <li>從試卷中任選一份</li>
-                <li>每次隨機出10道選擇題</li>
+                <li>每次根據輸入的題目數量隨機生成選擇題</li>
                 <li>答題完成後顯示詳細解析</li>
                 <li>標記熱門題目，便於重點學習</li>
                 <li>提供重測功能，加強練習</li>
@@ -31,6 +31,12 @@
         <div class="paper-selection">
             <h2>請選擇測驗卷</h2>
             <p>請選擇您想要測驗的試卷：</p>
+
+            <!-- 題目數量選擇 -->
+            <div class="question-count-container">
+                <label for="question-count">題目數量：</label>
+                <input type="number" id="question-count" min="1" max="100" value="10">
+            </div>
             <h3>卷一 保險原理及實務</h3>
             <button class="btn paper-btn" data-paper="1">第一章 風險及保險</button>
             <button class="btn paper-btn" data-paper="2">第二章 法律原則</button>
@@ -40,6 +46,24 @@
             <button class="btn paper-btn" data-paper="6">第六章 保險業規管架構</button>
             <button class="btn paper-btn" data-paper="7">第七章 職業道德及其他有關問題</button>
             <h3>卷三 長期保險</h3>    
+            <button class="btn paper-btn" data-paper="8">第一章 人壽保險簡介</button>
+            <button class="btn paper-btn" data-paper="9">第二章 人壽保險及年金的種類</button>
+            <button class="btn paper-btn" data-paper="10">第三章 保險利益附約及其他產品</button>
+            <button class="btn paper-btn" data-paper="11">第四章 闡釋人壽保險單</button>
+            <button class="btn paper-btn" data-paper="12">第五章 人壽保險程序</button>
+
+             <!-- 模擬考試按鈕 -->
+            <div class="mock-exam-container">
+                <button class="btn mock-exam-btn" id="mock-exam-btn-paper1">
+                    卷一模擬考試 (75題，2小時)
+                </button>
+                <p class="mock-exam-info">依照正式考試比重出題，必須答對70%（53題）才及格</p>
+                
+                <button class="btn mock-exam-btn mock-exam-btn-paper3" id="mock-exam-btn-paper3">
+                    卷三模擬考試 (50題，1小時15分鐘)
+                </button>
+                <p class="mock-exam-info">依照正式考試比重出題，必須答對70%（35題）才及格</p>
+            </div>
             <div class="error-message" id="load-error">載入試卷資料時發生錯誤，請重試。</div>
         </div>
         

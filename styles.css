@@ -132,6 +132,16 @@ h2 {
     padding: 5px 0;
 }
 
+.option-label {
+    display: inline-block;
+    margin-left: 5px; /* 可選：添加一些間距 */
+    vertical-align: middle; /* 可選：垂直對齊 */
+}
+
+.option input[type="radio"] {
+    vertical-align: middle; /* 可選：垂直對齊單選按鈕 */
+}
+
 .result-item {
     margin-bottom: 25px;
     padding: 20px;
@@ -347,4 +357,31 @@ h2 {
 
 .error-message.show {
     display: block;
+}
+
+.mock-exam-container {
+    margin: 20px 0;
+    padding: 15px;
+    background-color: #f1f8ff;
+    border-left: 4px solid #3498db;
+    border-radius: 5px;
+}
+
+.mock-exam-btn {
+    background-color: #e74c3c;
+    color: white;
+    font-weight: bold;
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+}
+
+.mock-exam-btn:hover {
+    background-color: #c0392b;
+}
+
+.mock-exam-info {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #555;
 }

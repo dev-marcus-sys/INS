@@ -1,4 +1,6 @@
 // 全局變數
+let questionCount = 10; // 預設題目數量
+
 const paperNames = {
     "1": "卷一 (第一章 風險及保險)",
     "2": "卷一 (第二章 法律原則)",
@@ -6,7 +8,12 @@ const paperNames = {
     "4": "卷一 (第四章 保險公司的主要功能)",
     "5": "卷一 (第五章 香港保險業結構)",
     "6": "卷一 (第六章 保險業規管架構)",
-    "7": "卷一 (第七章 職業道德及其他有關問題)"
+    "7": "卷一 (第七章 職業道德及其他有關問題)",
+    "8": "卷三 (第一章 人壽保險簡介)",
+    "9": "卷三 (第二章 人壽保險及年金的種類)",
+    "10": "卷三 (第三章 保險利益附約及其他產品)",
+    "11": "卷三 (第四章 闡釋人壽保險單)",
+    "12": "卷三 (第五章 人壽保險程序)"
 };
 
 const paperFiles = {
@@ -16,9 +23,43 @@ const paperFiles = {
     "4": "data/paper4.json",
     "5": "data/paper5.json",
     "6": "data/paper6.json",
-    "7": "data/paper7.json"
+    "7": "data/paper7.json",
+    "8": "data/paper8.json",
+    "9": "data/paper9.json",
+    "10": "data/paper10.json",
+    "11": "data/paper11.json",
+    "12": "data/paper12.json"
 };
 
+// 卷一模擬考試配置
+const mockExamConfig = {
+    duration: 120, // 考試時間（分鐘）
+    totalQuestions: 75, // 總題數
+    passScore: 53, // 及格分數
+    chapterDistribution: {
+        "1": 9,  // 第一章佔9題
+        "2": 12, // 第二章佔12題
+        "3": 22, // 第三章佔22題
+        "4": 7,  // 第四章佔7題
+        "5": 4,  // 第五章佔4題
+        "6": 16, // 第六章佔16題
+        "7": 5   // 第七章佔5題
+    }
+};
+
+// 卷三模擬考試配置
+const mockExamPaper3Config = {
+    duration: 75, // 考試時間（分鐘）
+    totalQuestions: 50, // 總題數
+    passScore: 35, // 及格分數
+    chapterDistribution: {
+        "8": 5,   // 第一章佔5題
+        "9": 10,  // 第二章佔10題
+        "10": 12, // 第三章佔12題
+        "11": 12, // 第四章佔12題
+        "12": 11  // 第五章佔11題
+    }
+};
 let currentPaper = "";
 let currentPaperNumber = "";
 let quizQuestions = [];
@@ -75,6 +116,13 @@ document.getElementById('retry-btn').addEventListener('click', () => {
 
 // 從檔案載入試卷資料
 function loadPaperData(paperNumber) {
+     // 獲取用戶設定的題目數量
+     const inputCount = document.getElementById('question-count').value;
+     questionCount = parseInt(inputCount) || 10; // 如果輸入無效，使用預設值10
+     
+     // 限制題目數量在合理範圍內
+     questionCount = Math.max(1, Math.min(questionCount, 100));
+
     // 如果已經載入過該試卷，直接使用
     if (loadedPapers[paperNumber]) {
         startQuiz(paperNumber);
@@ -87,14 +135,18 @@ function loadPaperData(paperNumber) {
     loadError.classList.remove('show');
     
     // 從檔案載入資料
-    fetch(paperFiles[paperNumber])
+    const filePath = paperFiles[paperNumber];
+    console.log(`嘗試載入文件: ${filePath}`);
+    
+    fetch(filePath)
         .then(response => {
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
+            console.log(`成功載入試卷 ${paperNumber} 數據`);
             // 儲存載入的資料
             loadedPapers[paperNumber] = data;
             
@@ -103,9 +155,10 @@ function loadPaperData(paperNumber) {
             startQuiz(paperNumber);
         })
         .catch(error => {
-            console.error("載入試卷資料失敗:", error);
+            console.error(`載入試卷資料失敗 (${paperNumber}):`, error);
             loadingScreen.classList.remove('active');
             paperSelection.classList.add('active');
+            loadError.textContent = `載入試卷資料時發生錯誤: ${error.message}`;
             loadError.classList.add('show');
         });
 }
@@ -118,7 +171,7 @@ function startQuiz(paperNumber) {
     // 設置當前試卷資訊
     currentPaperNumber = paperNumber;
     currentPaper = paperNames[paperNumber];
-    currentPaperInfo.textContent = `試卷：${currentPaper}`;
+    currentPaperInfo.textContent = `試卷：${currentPaper} (共${questionCount}題)`;
     
     // 從載入的試卷中獲取所有題目
     const allQuestions = [];
@@ -131,8 +184,11 @@ function startQuiz(paperNumber) {
         });
     }
     
-    // 隨機選取10道題目
-    quizQuestions = getRandomQuestions(allQuestions, 10);
+    // 檢查可用題目數量是否足夠
+    const availableCount = Math.min(questionCount, allQuestions.length);
+
+    // 隨機選取用戶指定數量的題目
+    quizQuestions = getRandomQuestions(allQuestions, availableCount);
     
     // 生成測驗界面
     generateQuiz(quizQuestions);
@@ -192,11 +248,11 @@ function generateQuiz(questions) {
             questionHTML += `
                 <div class="option">
                     <input type="radio" id="${optionId}" name="question-${index}" value="${option.key}">
-                    <label for="${optionId}">${option.key}. ${option.text}</label>
+                    <label for="${optionId}" class="option-label">${option.key}. ${option.text}</label>
                 </div>
             `;
         });
-        
+
         questionHTML += `</div>`;
         questionDiv.innerHTML = questionHTML;
         
@@ -384,18 +440,25 @@ function showResults(results) {
             </div>
         `;
         
+
+        // 從題目中提取選項
+        const options = extractOptions(detail.question.題目);
+
+        // 找到用戶答案的選項內容
+        const userOption = options.find(option => option.key === detail.userAnswer);
+        const userOptionText = userOption ? userOption.text : '';
+
         // 用戶答案
         resultHTML += `
             <div class="user-answer">
-                您的答案：<span class="${detail.isCorrect ? 'correct-answer' : 'wrong-answer'}">${detail.userAnswer}</span>
+                您的答案：<span class="${detail.isCorrect ? 'correct-answer' : 'wrong-answer'}">
+                    ${detail.userAnswer}. ${userOptionText}
+                </span>
             </div>
         `;
-        
+
         // 如果答錯，顯示正確答案
         if (!detail.isCorrect) {
-            // 從題目中提取選項
-            const options = extractOptions(detail.question.題目);
-            
             // 找到正確答案的選項內容
             const correctOption = options.find(option => option.key === detail.question.答案);
             const correctOptionText = correctOption ? correctOption.text : '';
@@ -407,13 +470,8 @@ function showResults(results) {
             `;
         }
 
-        // if (!detail.isCorrect) {
-        //     resultHTML += `
-        //         <div class="answer-section">
-        //             正確答案：<span class="correct-answer">${detail.question.答案}</span>
-        //         </div>
-        //     `;
-        // }
+
+    
         
         // 解釋
         resultHTML += `
@@ -435,4 +493,164 @@ function showResults(results) {
         resultDiv.innerHTML = resultHTML;
         resultsListContainer.appendChild(resultDiv);
     });
+}
+
+// 模擬考試按鈕事件監聽
+document.getElementById('mock-exam-btn-paper1').addEventListener('click', () => {
+    startMockExam(mockExamConfig, "卷一模擬考試", "mock1");
+});
+
+document.getElementById('mock-exam-btn-paper3').addEventListener('click', () => {
+    startMockExam(mockExamPaper3Config, "卷三模擬考試", "mock3");
+});
+
+
+// 開始模擬考試
+function startMockExam(config, paperName, paperCode) {
+    // 設置題目數量
+    questionCount = config.totalQuestions;
+    
+    // 顯示載入畫面
+    paperSelection.classList.remove('active');
+    loadingScreen.classList.add('active');
+    loadError.classList.remove('show');
+    
+    // 載入所有需要的試卷數據
+    loadAllPapersForMockExam(config, paperName, paperCode);
+}
+
+// 載入模擬考試所需的所有試卷數據
+function loadAllPapersForMockExam(config, paperName, paperCode) {
+    const chaptersToLoad = Object.keys(config.chapterDistribution);
+    let loadedCount = 0;
+    let hasError = false;
+    
+    // 顯示載入進度
+    const loadingText = document.querySelector('.loading-text');
+    if (loadingText) {
+        loadingText.textContent = `正在載入試卷數據 (0/${chaptersToLoad.length})...`;
+    }
+    
+    // 載入每個章節的數據
+    chaptersToLoad.forEach(chapter => {
+        if (!loadedPapers[chapter]) {
+            fetch(paperFiles[chapter])
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`載入第${chapter}章數據失敗: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    loadedPapers[chapter] = data;
+                    loadedCount++;
+                    
+                    if (loadingText) {
+                        loadingText.textContent = `正在載入試卷數據 (${loadedCount}/${chaptersToLoad.length})...`;
+                    }
+                    
+                    // 所有數據都已載入
+                    if (loadedCount === chaptersToLoad.length && !hasError) {
+                        startMockExamWithLoadedData(config, paperName, paperCode);
+                    }
+                })
+                .catch(error => {
+                    console.error(`載入第${chapter}章數據失敗:`, error);
+                    hasError = true;
+                    loadingScreen.classList.remove('active');
+                    paperSelection.classList.add('active');
+                    loadError.textContent = `載入試卷數據失敗: ${error.message}`;
+                    loadError.classList.add('show');
+                });
+        } else {
+            loadedCount++;
+            if (loadingText) {
+                loadingText.textContent = `正在載入試卷數據 (${loadedCount}/${chaptersToLoad.length})...`;
+            }
+            
+            // 所有數據都已載入
+            if (loadedCount === chaptersToLoad.length && !hasError) {
+                startMockExamWithLoadedData(config, paperName, paperCode);
+            }
+        }
+    });
+    
+    // 如果所有數據已經載入過
+    if (loadedCount === chaptersToLoad.length && !hasError) {
+        startMockExamWithLoadedData(config, paperName, paperCode);
+    }
+}
+
+// 使用已載入的數據開始模擬考試
+function startMockExamWithLoadedData(config, paperName, paperCode) {
+    // 根據配置的比例從各章節選擇題目
+    const selectedQuestions = [];
+    
+    for (const chapter in config.chapterDistribution) {
+        const count = config.chapterDistribution[chapter];
+        const chapterQuestions = [];
+        
+        // 將章節題目添加到臨時數組
+        if (loadedPapers[chapter]) {
+            for (const section in loadedPapers[chapter]) {
+                loadedPapers[chapter][section].forEach(question => {
+                    chapterQuestions.push({...question, chapter});
+                });
+            }
+        }
+        
+        // 隨機選擇指定數量的題目
+        if (chapterQuestions.length > 0) {
+            const selected = getRandomQuestions(chapterQuestions, Math.min(count, chapterQuestions.length));
+            selectedQuestions.push(...selected);
+        }
+    }
+    
+    // 如果題目不足，提示用戶
+    if (selectedQuestions.length < config.totalQuestions) {
+        alert(`警告：可用題目不足${config.totalQuestions}題，僅能提供${selectedQuestions.length}題。`);
+    }
+    
+    // 設置當前試卷信息
+    currentPaper = paperName;
+    currentPaperNumber = paperCode;
+    currentPaperInfo.textContent = `試卷：${currentPaper} (共${selectedQuestions.length}題，及格分數：${config.passScore}題)`;
+    
+    // 生成測驗
+    quizQuestions = selectedQuestions;
+    generateQuiz(quizQuestions);
+    
+    // 設置考試時間
+    startTime = new Date();
+    const examEndTime = new Date(startTime.getTime() + config.duration * 60 * 1000);
+    startTimerWithEndTime(examEndTime);
+    
+    // 顯示測驗畫面
+    loadingScreen.classList.remove('active');
+    quizContainer.classList.add('active');
+}
+
+// 帶有結束時間的計時器
+function startTimerWithEndTime(endTime) {
+    clearInterval(timerInterval);
+    
+    timerInterval = setInterval(() => {
+        const now = new Date();
+        const timeDiff = endTime - now;
+        
+        if (timeDiff <= 0) {
+            // 時間到，自動提交
+            clearInterval(timerInterval);
+            alert("考試時間已到！系統將自動提交您的答案。");
+            submitQuiz();
+            return;
+        }
+        
+        // 計算剩餘時間
+        const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+        
+        quizTimer.textContent = `剩餘時間: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }, 1000);
 }
