@@ -393,12 +393,27 @@ function showResults(results) {
         
         // 如果答錯，顯示正確答案
         if (!detail.isCorrect) {
+            // 從題目中提取選項
+            const options = extractOptions(detail.question.題目);
+            
+            // 找到正確答案的選項內容
+            const correctOption = options.find(option => option.key === detail.question.答案);
+            const correctOptionText = correctOption ? correctOption.text : '';
+            
             resultHTML += `
                 <div class="answer-section">
-                    正確答案：<span class="correct-answer">${detail.question.答案}</span>
+                    正確答案：<span class="correct-answer">${detail.question.答案}. ${correctOptionText}</span>
                 </div>
             `;
         }
+
+        // if (!detail.isCorrect) {
+        //     resultHTML += `
+        //         <div class="answer-section">
+        //             正確答案：<span class="correct-answer">${detail.question.答案}</span>
+        //         </div>
+        //     `;
+        // }
         
         // 解釋
         resultHTML += `
