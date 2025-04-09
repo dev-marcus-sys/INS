@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>保險考試測驗系統</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>保險考試測驗系統</h1>
+        
+        <!-- 歡迎畫面 -->
+        <div class="welcome-screen active">
+            <h2>歡迎使用</h2>
+            <p>歡迎使用保險考試測驗系統！本系統將從選定的試卷中隨機抽取10題供您作答。</p>
+            <p>測驗特點：</p>
+            <ul>
+                <li>從兩份試卷中任選一份</li>
+                <li>每次隨機出10道選擇題</li>
+                <li>答題完成後顯示詳細解析</li>
+                <li>標記熱門題目，便於重點學習</li>
+                <li>提供重測功能，加強練習</li>
+            </ul>
+            <div class="center-buttons">
+                <button class="btn" id="start-btn">開始測驗</button>
+            </div>
+        </div>
+        
+        <!-- 選擇試卷畫面 -->
+        <div class="paper-selection">
+            <h2>請選擇測驗卷</h2>
+            <p>請選擇您想要測驗的試卷：</p>
+            <h3>卷一 保險原理及實務</h3>
+            <button class="btn paper-btn" data-paper="1">第一章 風險及保險</button>
+            <button class="btn paper-btn" data-paper="2">第二章 法律原則</button>
+            <button class="btn paper-btn" data-paper="3">第三章 保險原則</button>
+            <button class="btn paper-btn" data-paper="4">第四章 保險公司的主要功能</button>
+            <button class="btn paper-btn" data-paper="5">第五章 香港保險業結構</button>
+            <button class="btn paper-btn" data-paper="6">第六章 保險業規管架構</button>
+            <button class="btn paper-btn" data-paper="7">第七章 職業道德及其他有關問題</button>
+            <h3>卷三 長期保險</h3>    
+            <div class="error-message" id="load-error">載入試卷資料時發生錯誤，請重試。</div>
+        </div>
+        
+        <!-- 載入畫面 -->
+        <div class="loading-screen">
+            <div class="loading-spinner"></div>
+            <p>正在載入試卷資料，請稍候...</p>
+        </div>
+        
+        <!-- 測驗畫面 -->
+        <div class="quiz-container">
+            <div class="quiz-header">
+                <div class="paper-info" id="current-paper-info">試卷：</div>
+                <div class="timer" id="quiz-timer">時間：00:00</div>
+            </div>
+            
+            <div class="progress-container">
+                <div class="progress-bar"></div>
+            </div>
+            <div id="progress-text" style="text-align: center; margin-bottom: 20px;">已作答：0/10 題</div>
+            
+            <div class="unanswered-warning" id="unanswered-warning">
+                您還有未作答的題目，請確保所有題目都已回答！
+            </div>
+            
+            <div id="questions-container"></div>
+            
+            <div class="center-buttons">
+                <button class="btn" id="submit-btn">提交答案</button>
+            </div>
+        </div>
+        
+        <!-- 結果畫面 -->
+        <div class="results-container">
+            <h2>測驗結果</h2>
+            <div class="paper-info" id="result-paper-info">試卷：</div>
+            
+            <div class="score" id="score-display"></div>
+            
+            <div class="stats-container">
+                <div class="stat-item">
+                    <div class="stat-value" id="correct-count">0</div>
+                    <div class="stat-label">答對題數</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="incorrect-count">0</div>
+                    <div class="stat-label">答錯題數</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="time-used">00:00</div>
+                    <div class="stat-label">使用時間</div>
+                </div>
+            </div>
+            
+            <h3>詳細解析</h3>
+            <div id="results-list"></div>
+            
+            <div class="center-buttons">
+                <button class="btn" id="retry-same-btn">重測相同試卷</button>
+                <button class="btn" id="retry-btn">選擇其他試卷</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
