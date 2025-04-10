@@ -1,5 +1,6 @@
 // 全局變數
 let questionCount = 10; // 預設題目數量
+let originalQuizQuestions = [];
 
 const paperNames = {
     "1": "卷一 (第一章 風險及保險)",
@@ -106,11 +107,42 @@ document.getElementById('submit-btn').addEventListener('click', submitQuiz);
 
 document.getElementById('retry-same-btn').addEventListener('click', () => {
     resultsContainer.classList.remove('active');
-    startQuiz(currentPaperNumber);
+     // 重置用戶答案
+     userAnswers = {};
+     // 隱藏未回答警告
+     unansweredWarning.classList.remove('show');
+
+
+    // 檢查是否是模擬考試
+    if (currentPaperNumber === "mock1" || currentPaperNumber === "mock3") {
+        // 對於模擬考試，使用保存的試卷名稱和題目
+        const config = currentPaperNumber === "mock1" ? mockExamConfig : mockExamPaper3Config;
+        const paperName = currentPaperNumber === "mock1" ? "卷一模擬考試" : "卷三模擬考試";
+        
+        // 重設試卷信息
+        currentPaper = paperName;
+        currentPaperInfo.textContent = `試卷：${currentPaper} (共${originalQuizQuestions.length}題，及格分數：${config.passScore}題)`;
+        
+        // 重用之前的題目
+        quizQuestions = [...originalQuizQuestions];
+        generateQuiz(quizQuestions);
+        
+        // 重新開始計時
+        startTime = new Date();
+        const examEndTime = new Date(startTime.getTime() + config.duration * 60 * 1000);
+        startTimerWithEndTime(examEndTime);
+        
+        // 顯示測驗畫面
+        quizContainer.classList.add('active');
+    } else {
+        // 一般試卷重測
+        startQuiz(currentPaperNumber, true); // 傳入 true 表示重用相同的題目
+    }
 });
 
 document.getElementById('retry-btn').addEventListener('click', () => {
     resultsContainer.classList.remove('active');
+    quizContainer.classList.remove('active'); // 確保測驗畫面被隱藏
     paperSelection.classList.add('active');
 });
 
@@ -125,12 +157,18 @@ function loadPaperData(paperNumber) {
 
     // 如果已經載入過該試卷，直接使用
     if (loadedPapers[paperNumber]) {
+        // 確保其他畫面被隱藏
+        paperSelection.classList.remove('active');
+        resultsContainer.classList.remove('active');
+        quizContainer.classList.remove('active'); // 先移除，避免疊加
         startQuiz(paperNumber);
         return;
     }
     
     // 顯示載入畫面
     paperSelection.classList.remove('active');
+    resultsContainer.classList.remove('active'); 
+    quizContainer.classList.remove('active'); 
     loadingScreen.classList.add('active');
     loadError.classList.remove('show');
     
@@ -164,31 +202,43 @@ function loadPaperData(paperNumber) {
 }
 
 // 開始測驗
-function startQuiz(paperNumber) {
+function startQuiz(paperNumber, reuseQuestions = false) {
     // 重置使用者答案
     userAnswers = {};
     
+    // 確保其他畫面被隱藏
+    paperSelection.classList.remove('active');
+    resultsContainer.classList.remove('active');
+    loadingScreen.classList.remove('active');
+
     // 設置當前試卷資訊
     currentPaperNumber = paperNumber;
     currentPaper = paperNames[paperNumber];
     currentPaperInfo.textContent = `試卷：${currentPaper} (共${questionCount}題)`;
     
-    // 從載入的試卷中獲取所有題目
-    const allQuestions = [];
-    const paperData = loadedPapers[paperNumber];
-    
-    // 將各章節的題目合併到一個陣列中
-    for (const chapter in paperData) {
-        paperData[chapter].forEach(question => {
-            allQuestions.push({...question, chapter});
-        });
-    }
-    
-    // 檢查可用題目數量是否足夠
-    const availableCount = Math.min(questionCount, allQuestions.length);
+    if (!reuseQuestions) {
+        // 從載入的試卷中獲取所有題目
+        const allQuestions = [];
+        const paperData = loadedPapers[paperNumber];
+        
+        // 將各章節的題目合併到一個陣列中
+        for (const chapter in paperData) {
+            paperData[chapter].forEach(question => {
+                allQuestions.push({...question, chapter});
+            });
+        }
+        
+        // 檢查可用題目數量是否足夠
+        const availableCount = Math.min(questionCount, allQuestions.length);
 
-    // 隨機選取用戶指定數量的題目
-    quizQuestions = getRandomQuestions(allQuestions, availableCount);
+        // 隨機選取用戶指定數量的題目
+        quizQuestions = getRandomQuestions(allQuestions, availableCount);
+        // 保存原始題目集合
+        originalQuizQuestions = [...quizQuestions];
+    } else {
+        // 重用之前的題目集合
+        quizQuestions = [...originalQuizQuestions];
+    }
     
     // 生成測驗界面
     generateQuiz(quizQuestions);
@@ -200,6 +250,7 @@ function startQuiz(paperNumber) {
     startTime = new Date();
     startTimer();
 }
+
 
 // 從陣列中隨機選取指定數量的元素
 function getRandomQuestions(arr, n) {
@@ -234,12 +285,12 @@ function generateQuiz(questions) {
         
         // 生成題目HTML
         let questionHTML = `
-            <div class="question-text">
-                <span class="question-number">${index + 1}.</span>
-                ${questionTextWithoutOptions}
-                ${question['*熱門題目'] ? '<span class="hot-question">[熱門題目]</span>' : ''}
-            </div>
-            <div class="options">
+        <div class="question-text">
+            <span class="question-number">${index + 1}.</span>
+            ${questionTextWithoutOptions.replace(/\n/g, '<br>')}
+            ${question['*熱門題目'] ? '<span class="hot-question">[熱門題目]</span>' : ''}
+        </div>
+        <div class="options">
         `;
         
         // 生成選項HTML
@@ -248,10 +299,11 @@ function generateQuiz(questions) {
             questionHTML += `
                 <div class="option">
                     <input type="radio" id="${optionId}" name="question-${index}" value="${option.key}">
-                    <label for="${optionId}" class="option-label">${option.key}. ${option.text}</label>
+                    <label for="${optionId}" class="option-label">${option.key}. ${option.text.replace(/\n/g, '<br>')}</label>
                 </div>
             `;
         });
+
 
         questionHTML += `</div>`;
         questionDiv.innerHTML = questionHTML;
@@ -435,10 +487,11 @@ function showResults(results) {
         let resultHTML = `
             <div class="question-text">
                 <span class="question-number">${index + 1}.</span>
-                ${questionTextWithoutOptions}
+                ${questionTextWithoutOptions.replace(/\n/g, '<br>')}
                 ${detail.question['*熱門題目'] ? '<span class="hot-question">[熱門題目]</span>' : ''}
             </div>
         `;
+
         
 
         // 從題目中提取選項
@@ -450,11 +503,11 @@ function showResults(results) {
 
         // 用戶答案
         resultHTML += `
-            <div class="user-answer">
-                您的答案：<span class="${detail.isCorrect ? 'correct-answer' : 'wrong-answer'}">
-                    ${detail.userAnswer}. ${userOptionText}
-                </span>
-            </div>
+        <div class="user-answer">
+            您的答案：<span class="${detail.isCorrect ? 'correct-answer' : 'wrong-answer'}">
+                ${detail.userAnswer}. ${userOptionText.replace(/\n/g, '<br>')}
+            </span>
+        </div>
         `;
 
         // 如果答錯，顯示正確答案
@@ -465,7 +518,7 @@ function showResults(results) {
             
             resultHTML += `
                 <div class="answer-section">
-                    正確答案：<span class="correct-answer">${detail.question.答案}. ${correctOptionText}</span>
+                    正確答案：<span class="correct-answer">${detail.question.答案}. ${correctOptionText.replace(/\n/g, '<br>')}</span>
                 </div>
             `;
         }
@@ -618,6 +671,8 @@ function startMockExamWithLoadedData(config, paperName, paperCode) {
     
     // 生成測驗
     quizQuestions = selectedQuestions;
+     // 關鍵修改：保存原始題目集合，以便重測時使用
+    originalQuizQuestions = [...selectedQuestions];
     generateQuiz(quizQuestions);
     
     // 設置考試時間

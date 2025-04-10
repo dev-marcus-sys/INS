@@ -385,3 +385,54 @@ h2 {
     font-size: 14px;
     color: #555;
 }
+/* 學習資源區塊樣式 */
+.study-resources {
+    margin-top: 30px;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.study-resources h3 {
+    color: #2c3e50;
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.resource-section {
+    margin-bottom: 20px;
+}
+
+.resource-section h4 {
+    color: #3498db;
+    margin-bottom: 10px;
+}
+
+.resource-links {
+    list-style-type: none;
+    padding-left: 0;
+    margin-bottom: 0;
+}
+
+.resource-links li {
+    margin-bottom: 8px;
+}
+
+.resource-links a {
+    color: #2980b9;
+    text-decoration: none;
+    display: block;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    background-color: #e9f7fe;
+    border-left: 3px solid #3498db;
+}
+
+.resource-links a:hover {
+    background-color: #d0ebf7;
+    color: #1a5276;
+    transform: translateX(5px);
+}
