@@ -709,3 +709,89 @@ function startTimerWithEndTime(endTime) {
         quizTimer.textContent = `剩餘時間: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }, 1000);
 }
+
+// 在 script.js 文件末尾添加以下代碼
+
+// 思維導圖功能
+function setupMindmapFeature() {
+    console.log("設置思維導圖功能...");
+    
+    // 獲取模態框元素
+    const modal = document.getElementById('mindmap-modal');
+    if (!modal) {
+        console.error("找不到思維導圖模態框元素!");
+        return;
+    }
+    
+    const modalImage = document.getElementById('mindmap-image');
+    const modalTitle = document.getElementById('mindmap-title');
+    const closeModal = document.querySelector('.close-modal');
+    
+    console.log("找到模態框元素:", modal);
+    
+    // 為所有思維導圖按鈕添加點擊事件
+    const mindmapButtons = document.querySelectorAll('.mindmap-btn');
+    console.log(`找到 ${mindmapButtons.length} 個思維導圖按鈕`);
+    
+    mindmapButtons.forEach(button => {
+        button.addEventListener('click', function(event) {
+            event.preventDefault(); // 防止事件冒泡
+            
+            const mindmapPath = this.getAttribute('data-mindmap');
+            console.log("點擊了思維導圖按鈕，路徑:", mindmapPath);
+            
+            if (mindmapPath) {
+                // 獲取章節名稱
+                const chapterName = this.closest('li').querySelector('a').textContent;
+                console.log("章節名稱:", chapterName);
+                
+                // 設置模態框內容
+                modalTitle.textContent = `思維導圖 - ${chapterName}`;
+                modalImage.src = mindmapPath;
+                
+                // 顯示模態框
+                modal.style.display = 'block';
+                document.body.style.overflow = 'hidden';
+                
+                console.log("模態框已顯示");
+            }
+        });
+    });
+    
+    // 點擊關閉按鈕關閉模態框
+    if (closeModal) {
+        closeModal.addEventListener('click', function() {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            console.log("關閉模態框");
+        });
+    }
+    
+    // 點擊模態框外部區域關閉模態框
+    window.addEventListener('click', function(event) {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            console.log("點擊外部區域關閉模態框");
+        }
+    });
+    
+    // 按ESC鍵關閉模態框
+    window.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && modal.style.display === 'block') {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            console.log("按ESC鍵關閉模態框");
+        }
+    });
+    
+    console.log("思維導圖功能設置完成");
+}
+
+// 確保在 DOM 完全加載後執行
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupMindmapFeature);
+} else {
+    // 如果 DOMContentLoaded 已經觸發，直接執行
+    setupMindmapFeature();
+}
