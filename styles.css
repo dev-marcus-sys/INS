@@ -546,3 +546,12 @@ h2 {
         padding: 15px;
     }
 }
+
+.back-btn {
+    background-color: #95a5a6;
+    margin-right: 10px;
+}
+
+.back-btn:hover {
+    background-color: #7f8c8d;
+}

@@ -795,3 +795,30 @@ if (document.readyState === 'loading') {
     // 如果 DOMContentLoaded 已經觸發，直接執行
     setupMindmapFeature();
 }
+
+
+// 添加返回按鈕的事件監聽器
+document.getElementById('back-to-welcome-btn').addEventListener('click', () => {
+    paperSelection.classList.remove('active');
+    welcomeScreen.classList.add('active');
+});
+
+document.getElementById('back-to-papers-btn').addEventListener('click', () => {
+    // 確認是否要放棄當前測驗
+    if (confirm('確定要放棄當前測驗並返回選擇試卷頁面嗎？')) {
+        // 停止計時器
+        if (timerInterval) {
+            clearInterval(timerInterval);
+        }
+        
+        // 重置用戶答案
+        userAnswers = {};
+        
+        // 隱藏未回答警告
+        unansweredWarning.classList.remove('show');
+        
+        // 切換畫面
+        quizContainer.classList.remove('active');
+        paperSelection.classList.add('active');
+    }
+});
