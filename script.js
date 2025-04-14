@@ -1,3 +1,38 @@
+// 加密/解密相關函數
+function encryptData(data, key) {
+    const encryptedData = CryptoJS.AES.encrypt(JSON.stringify(data), key).toString();
+    return encryptedData;
+}
+
+function decryptData(encryptedData, key) {
+    try {
+        console.log("開始解密數據...");
+        
+        // 嘗試解密
+        const bytes = CryptoJS.AES.decrypt(encryptedData, key);
+        const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+        
+        // 檢查解密結果是否為空
+        if (!decryptedText) {
+            console.log("解密結果為空");
+            return null;
+        }
+        
+        // 嘗試解析為 JSON
+        try {
+            const decryptedData = JSON.parse(decryptedText);
+            console.log("解密成功並解析為 JSON");
+            return decryptedData;
+        } catch (jsonError) {
+            console.error("解密後的內容不是有效的 JSON:", jsonError);
+            return null;
+        }
+    } catch (error) {
+        console.error("解密過程出錯:", error);
+        return null;
+    }
+}
+
 // 全局變數
 let questionCount = 10; // 預設題目數量
 let originalQuizQuestions = [];
@@ -89,6 +124,12 @@ const incorrectCount = document.getElementById('incorrect-count');
 const unansweredWarning = document.getElementById('unanswered-warning');
 const loadError = document.getElementById('load-error');
 
+// 新增 DOM 元素
+const keyVerificationScreen = document.querySelector('.key-verification');
+const keyVerificationLoading = document.getElementById('key-verification-loading');
+const keyError = document.getElementById('key-error');
+
+
 // 按鈕事件
 document.getElementById('start-btn').addEventListener('click', () => {
     welcomeScreen.classList.remove('active');
@@ -146,6 +187,179 @@ document.getElementById('retry-btn').addEventListener('click', () => {
     paperSelection.classList.add('active');
 });
 
+// 驗證加密金鑰
+function verifyEncryptionKey(key) {
+    return new Promise((resolve, reject) => {
+        // 顯示載入指示器
+        keyVerificationLoading.classList.add('show');
+        keyError.classList.remove('show');
+        
+        // 嘗試解密 paper1.json 作為測試
+        fetch('data/paper1.json')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
+                }
+                return response.text();
+            })
+            .then(encryptedText => {
+                try {
+                    // 嘗試解析為 JSON (未加密的情況)
+                    try {
+                        JSON.parse(encryptedText);
+                        // 如果是有效的 JSON，說明未加密，直接通過驗證
+                        resolve(true);
+                    } catch (e) {
+                        // 不是有效的 JSON，嘗試解密
+                        const decryptedData = decryptData(encryptedText, key);
+                        
+                        if (!decryptedData) {
+                            throw new Error('解密失敗，請確認加密金鑰是否正確');
+                        }
+                        
+                        // 解密成功
+                        resolve(true);
+                    }
+                } catch (error) {
+                    reject(error);
+                }
+            })
+            .catch(error => {
+                reject(error);
+            })
+            .finally(() => {
+                // 隱藏載入指示器
+                keyVerificationLoading.classList.remove('show');
+            });
+    });
+}
+
+
+// 初始化頁面
+function initApp() {
+  // 確保初始狀態只顯示金鑰驗證畫面
+  const keyVerificationScreen = document.querySelector('.key-verification');
+  const welcomeScreen = document.querySelector('.welcome-screen');
+  const paperSelection = document.querySelector('.paper-selection');
+  const loadingScreen = document.querySelector('.loading-screen');
+  const quizContainer = document.querySelector('.quiz-container');
+  const resultsContainer = document.querySelector('.results-container');
+  
+  // 確保只有金鑰驗證畫面是活躍的
+  keyVerificationScreen.classList.add('active');
+  welcomeScreen.classList.remove('active');
+  paperSelection.classList.remove('active');
+  loadingScreen.classList.remove('active');
+  quizContainer.classList.remove('active');
+  resultsContainer.classList.remove('active');
+  
+  // 確保載入指示器和錯誤訊息初始是隱藏的
+  const keyVerificationLoading = document.getElementById('key-verification-loading');
+  const keyError = document.getElementById('key-error');
+  if (keyVerificationLoading) keyVerificationLoading.classList.remove('show');
+  if (keyError) keyError.classList.remove('show');
+  
+  // 綁定金鑰驗證按鈕事件
+  document.getElementById('verify-key-btn').addEventListener('click', verifyKey);
+}
+
+// 驗證金鑰的函數
+function verifyKey() {
+    const encryptionKey = document.getElementById('encryptionKey').value;
+    const keyError = document.getElementById('key-error');
+    const keyVerificationLoading = document.getElementById('key-verification-loading');
+    
+    if (!encryptionKey) {
+        if (keyError) {
+            keyError.textContent = '請輸入加密金鑰';
+            keyError.classList.add('show');
+        }
+        return;
+    }
+    
+    // 顯示載入指示器
+    if (keyVerificationLoading) keyVerificationLoading.classList.add('show');
+    if (keyError) keyError.classList.remove('show');
+    
+    // 嘗試解密 paper1.json 作為測試
+    fetch('data/paper1.json')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
+            }
+            return response.text();
+        })
+        .then(encryptedText => {
+            try {
+                // 首先嘗試直接解析為 JSON (未加密的情況)
+                try {
+                    JSON.parse(encryptedText);
+                    console.log("文件是有效的 JSON，未加密，驗證通過");
+                    verificationSuccess(encryptionKey);
+                    return;
+                } catch (e) {
+                    // 不是有效的 JSON，可能是加密的
+                    console.log("文件不是有效的 JSON，嘗試解密");
+                }
+                
+                // 嘗試解密
+                const bytes = CryptoJS.AES.decrypt(encryptedText, encryptionKey);
+                const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                
+                // 檢查解密結果是否為空
+                if (!decryptedText) {
+                    throw new Error('解密失敗，請確認加密金鑰是否正確');
+                }
+                
+                // 嘗試解析解密後的 JSON
+                try {
+                    JSON.parse(decryptedText);
+                    console.log("解密成功且結果是有效的 JSON");
+                    verificationSuccess(encryptionKey);
+                } catch (jsonError) {
+                    throw new Error('解密結果不是有效的 JSON 格式');
+                }
+            } catch (error) {
+                console.error("解密失敗:", error);
+                if (keyError) {
+                    keyError.textContent = '金鑰不正確，無法解密數據';
+                    keyError.classList.add('show');
+                }
+            }
+        })
+        .catch(error => {
+            console.error("驗證過程出錯:", error);
+            if (keyError) {
+                keyError.textContent = error.message || '載入數據失敗，請檢查網絡連接';
+                keyError.classList.add('show');
+            }
+        })
+        .finally(() => {
+            // 隱藏載入指示器
+            if (keyVerificationLoading) keyVerificationLoading.classList.remove('show');
+        });
+}
+
+
+// 金鑰驗證成功後的處理
+function verificationSuccess(key) {
+    console.log("金鑰驗證成功!");
+    
+    // 儲存加密金鑰到 sessionStorage 以便後續使用
+    sessionStorage.setItem('encryptionKey', key);
+    
+    // 切換到歡迎畫面
+    const keyVerificationScreen = document.querySelector('.key-verification');
+    const welcomeScreen = document.querySelector('.welcome-screen');
+    
+    if (keyVerificationScreen) keyVerificationScreen.classList.remove('active');
+    if (welcomeScreen) welcomeScreen.classList.add('active');
+}
+
+// 在頁面加載完成後執行初始化
+window.addEventListener('DOMContentLoaded', initApp);
+
+
 // 從檔案載入試卷資料
 function loadPaperData(paperNumber) {
      // 獲取用戶設定的題目數量
@@ -154,6 +368,10 @@ function loadPaperData(paperNumber) {
      
      // 限制題目數量在合理範圍內
      questionCount = Math.max(1, Math.min(questionCount, 100));
+
+     // 從 sessionStorage 獲取加密金鑰
+    const encryptionKey = sessionStorage.getItem('encryptionKey');
+ 
 
     // 如果已經載入過該試卷，直接使用
     if (loadedPapers[paperNumber]) {
@@ -181,24 +399,45 @@ function loadPaperData(paperNumber) {
             if (!response.ok) {
                 throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
             }
-            return response.json();
+            return response.text();
         })
-        .then(data => {
-            console.log(`成功載入試卷 ${paperNumber} 數據`);
-            // 儲存載入的資料
+        .then(encryptedText => {
+            console.log(`成功獲取試卷 ${paperNumber} 數據`);
+            
+        try {
+            // 檢查數據是否為加密格式
+            let data;
+            
+            // 嘗試解析為 JSON (未加密的情況)
+            try {
+                data = JSON.parse(encryptedText);
+                console.log("數據似乎未加密，直接使用");
+            } catch (e) {
+                // 不是有效的 JSON，嘗試解密
+                console.log("數據可能已加密，嘗試解密");
+                data = decryptData(encryptedText, encryptionKey);
+                
+                if (!data) {
+                    throw new Error('解密失敗，請確認加密金鑰是否正確');
+                }
+            }
+            
             loadedPapers[paperNumber] = data;
             
             // 載入成功後開始測驗
             loadingScreen.classList.remove('active');
             startQuiz(paperNumber);
-        })
-        .catch(error => {
-            console.error(`載入試卷資料失敗 (${paperNumber}):`, error);
-            loadingScreen.classList.remove('active');
-            paperSelection.classList.add('active');
-            loadError.textContent = `載入試卷資料時發生錯誤: ${error.message}`;
-            loadError.classList.add('show');
-        });
+        } catch (error) {
+            throw error;
+        }
+    })
+    .catch(error => {
+        console.error(`載入試卷資料失敗 (${paperNumber}):`, error);
+        loadingScreen.classList.remove('active');
+        paperSelection.classList.add('active');
+        loadError.textContent = `載入試卷資料時發生錯誤: ${error.message}`;
+        loadError.classList.add('show');
+    });
 }
 
 // 開始測驗
@@ -797,6 +1036,7 @@ if (document.readyState === 'loading') {
 }
 
 
+
 // 添加返回按鈕的事件監聽器
 document.getElementById('back-to-welcome-btn').addEventListener('click', () => {
     paperSelection.classList.remove('active');
@@ -822,3 +1062,5 @@ document.getElementById('back-to-papers-btn').addEventListener('click', () => {
         paperSelection.classList.add('active');
     }
 });
+
+

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>試卷加密工具</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        .admin-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            margin-bottom: 20px;
+            padding: 10px;
+            font-family: monospace;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab-button {
+            flex: 1;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        .tab-button.active {
+            background-color: #3498db;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .success-message {
+            color: #28a745;
+            font-weight: bold;
+            margin-top: 10px;
+            display: none;
+        }
+        .error-message {
+            color: #dc3545;
+            font-weight: bold;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container admin-container">
+        <h1>試卷加密工具</h1>
+        
+        <div class="tab-buttons">
+            <button id="encryptTab" class="tab-button active">加密功能</button>
+            <button id="decryptTab" class="tab-button">解密測試</button>
+        </div>
+        
+        <div id="encryptContent" class="tab-content active">
+            <div class="form-group">
+                <label for="paperNumber">試卷編號 (1-12):</label>
+                <input type="number" id="paperNumber" min="1" max="12" value="1">
+            </div>
+            
+            <div class="form-group">
+                <label for="adminEncryptionKey">加密金鑰:</label>
+                <input type="password" id="adminEncryptionKey">
+            </div>
+            
+            <div class="form-group">
+                <button id="loadOriginalBtn" class="btn">載入原始試卷</button>
+            </div>
+            
+            <div class="form-group">
+                <label for="originalContent">原始內容:</label>
+                <textarea id="originalContent"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <button id="encryptBtn" class="btn">加密</button>
+            </div>
+            
+            <div class="form-group">
+                <label for="encryptedContent">加密後內容:</label>
+                <textarea id="encryptedContent"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <button id="saveBtn" class="btn">儲存加密檔案</button>
+            </div>
+        </div>
+        
+        <div id="decryptContent" class="tab-content">
+            <div class="form-group">
+                <label for="testPaperNumber">測試試卷編號 (1-12):</label>
+                <input type="number" id="testPaperNumber" min="1" max="12" value="1">
+            </div>
+            
+            <div class="form-group">
+                <label for="testEncryptionKey">測試解密金鑰:</label>
+                <input type="password" id="testEncryptionKey">
+            </div>
+            
+            <div class="form-group">
+                <button id="loadEncryptedBtn" class="btn">載入加密試卷</button>
+            </div>
+            
+            <div class="form-group">
+                <label for="testEncryptedContent">加密內容:</label>
+                <textarea id="testEncryptedContent"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <button id="decryptBtn" class="btn">解密測試</button>
+            </div>
+            
+            <div class="form-group">
+                <label for="testDecryptedContent">解密結果:</label>
+                <textarea id="testDecryptedContent"></textarea>
+            </div>
+            
+            <div id="decryptSuccess" class="success-message">解密成功！JSON 格式有效。</div>
+            <div id="decryptError" class="error-message">解密失敗或 JSON 格式無效！</div>
+        </div>
+    </div>
+    
+    <script>
+        // 頁籤切換功能
+        document.getElementById('encryptTab').addEventListener('click', () => {
+            document.getElementById('encryptTab').classList.add('active');
+            document.getElementById('decryptTab').classList.remove('active');
+            document.getElementById('encryptContent').classList.add('active');
+            document.getElementById('decryptContent').classList.remove('active');
+        });
+        
+        document.getElementById('decryptTab').addEventListener('click', () => {
+            document.getElementById('encryptTab').classList.remove('active');
+            document.getElementById('decryptTab').classList.add('active');
+            document.getElementById('encryptContent').classList.remove('active');
+            document.getElementById('decryptContent').classList.add('active');
+        });
+        
+        // 原有的加密功能
+        document.getElementById('loadOriginalBtn').addEventListener('click', async () => {
+            const paperNumber = document.getElementById('paperNumber').value;
+            if (!paperNumber || paperNumber < 1 || paperNumber > 12) {
+                alert('請輸入有效的試卷編號 (1-12)');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`data/paper${paperNumber}.json`);
+                if (!response.ok) {
+                    throw new Error(`無法載入試卷 ${paperNumber}`);
+                }
+                
+                const data = await response.text();
+                document.getElementById('originalContent').value = data;
+            } catch (error) {
+                alert('載入試卷失敗: ' + error.message);
+            }
+        });
+        
+        document.getElementById('encryptBtn').addEventListener('click', () => {
+            const originalContent = document.getElementById('originalContent').value;
+            const encryptionKey = document.getElementById('adminEncryptionKey').value;
+            
+            if (!originalContent) {
+                alert('請先載入原始試卷內容');
+                return;
+            }
+            
+            if (!encryptionKey) {
+                alert('請輸入加密金鑰');
+                return;
+            }
+            
+            try {
+                // 先嘗試解析為 JSON 以確保格式正確
+                let jsonData;
+                try {
+                    jsonData = JSON.parse(originalContent);
+                } catch (e) {
+                    alert('原始內容不是有效的 JSON 格式');
+                    return;
+                }
+                
+                // 加密整個 JSON 字符串
+                const encryptedData = CryptoJS.AES.encrypt(originalContent, encryptionKey).toString();
+                document.getElementById('encryptedContent').value = encryptedData;
+            } catch (error) {
+                alert('加密失敗: ' + error.message);
+            }
+        });
+        
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            const encryptedContent = document.getElementById('encryptedContent').value;
+            const paperNumber = document.getElementById('paperNumber').value;
+            
+            if (!encryptedContent) {
+                alert('請先加密試卷內容');
+                return;
+            }
+            
+            const blob = new Blob([encryptedContent], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `paper${paperNumber}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+        
+        // 新增的解密測試功能
+        document.getElementById('loadEncryptedBtn').addEventListener('click', async () => {
+            const paperNumber = document.getElementById('testPaperNumber').value;
+            if (!paperNumber || paperNumber < 1 || paperNumber > 12) {
+                alert('請輸入有效的試卷編號 (1-12)');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`data/paper${paperNumber}.json`);
+                if (!response.ok) {
+                    throw new Error(`無法載入試卷 ${paperNumber}`);
+                }
+                
+                const data = await response.text();
+                document.getElementById('testEncryptedContent').value = data;
+                
+                // 重設訊息狀態
+                document.getElementById('decryptSuccess').style.display = 'none';
+                document.getElementById('decryptError').style.display = 'none';
+                document.getElementById('testDecryptedContent').value = '';
+            } catch (error) {
+                alert('載入試卷失敗: ' + error.message);
+            }
+        });
+        
+        document.getElementById('decryptBtn').addEventListener('click', () => {
+            const encryptedContent = document.getElementById('testEncryptedContent').value;
+            const decryptionKey = document.getElementById('testEncryptionKey').value;
+            
+            if (!encryptedContent) {
+                alert('請先載入加密試卷內容');
+                return;
+            }
+            
+            if (!decryptionKey) {
+                alert('請輸入解密金鑰');
+                return;
+            }
+            
+            try {
+                // 嘗試解密
+                const decryptedBytes = CryptoJS.AES.decrypt(encryptedContent, decryptionKey);
+                const decryptedText = decryptedBytes.toString(CryptoJS.enc.Utf8);
+                
+                if (!decryptedText) {
+                    throw new Error('解密失敗，可能是金鑰不正確');
+                }
+                
+                // 嘗試解析 JSON 以驗證格式
+                try {
+                    const jsonData = JSON.parse(decryptedText);
+                    document.getElementById('testDecryptedContent').value = JSON.stringify(jsonData, null, 2);
+                    document.getElementById('decryptSuccess').style.display = 'block';
+                    document.getElementById('decryptError').style.display = 'none';
+                } catch (e) {
+                    document.getElementById('testDecryptedContent').value = decryptedText;
+                    document.getElementById('decryptError').style.display = 'block';
+                    document.getElementById('decryptSuccess').style.display = 'none';
+                }
+            } catch (error) {
+                document.getElementById('testDecryptedContent').value = '解密失敗: ' + error.message;
+                document.getElementById('decryptError').style.display = 'block';
+                document.getElementById('decryptSuccess').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

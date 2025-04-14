@@ -5,11 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>保險考試測驗系統</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- 添加 CryptoJS 庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js">
+
+    </script>
 </head>
 <body>
     <div class="container">
         <h1>保險考試測驗系統</h1>
         
+        <!-- 加密金鑰驗證畫面 -->
+        <div class="key-verification active">
+            <h2>請輸入加密金鑰</h2>
+            <div class="form-group">
+                <label for="encryptionKey">加密金鑰:</label>
+                <input type="password" id="encryptionKey" placeholder="請輸入加密金鑰">
+            </div>
+            <div class="form-group">
+                <button id="verify-key-btn" class="btn">驗證金鑰</button>
+            </div>
+            <div id="key-error" class="error-message"></div>
+            <div class="loading-indicator" id="key-verification-loading">
+                <div class="spinner"></div>
+                <p>正在驗證金鑰...</p>
+            </div>
+        </div>
+
+
         <!-- 歡迎畫面 -->
         <div class="welcome-screen active">
             <h2>歡迎使用</h2>
