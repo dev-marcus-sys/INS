@@ -817,8 +817,11 @@ function loadAllPapersForMockExam(config, paperName, paperCode) {
     let loadedCount = 0;
     let hasError = false;
     
+    // 從 sessionStorage 獲取加密金鑰
+    const encryptionKey = sessionStorage.getItem('encryptionKey');
+    
     // 顯示載入進度
-    const loadingText = document.querySelector('.loading-text');
+    const loadingText = document.querySelector('.loading-screen p');
     if (loadingText) {
         loadingText.textContent = `正在載入試卷數據 (0/${chaptersToLoad.length})...`;
     }
@@ -831,19 +834,40 @@ function loadAllPapersForMockExam(config, paperName, paperCode) {
                     if (!response.ok) {
                         throw new Error(`載入第${chapter}章數據失敗: ${response.status}`);
                     }
-                    return response.json();
+                    return response.text();  // 改為返回文本而非直接解析為JSON
                 })
-                .then(data => {
-                    loadedPapers[chapter] = data;
-                    loadedCount++;
-                    
-                    if (loadingText) {
-                        loadingText.textContent = `正在載入試卷數據 (${loadedCount}/${chaptersToLoad.length})...`;
-                    }
-                    
-                    // 所有數據都已載入
-                    if (loadedCount === chaptersToLoad.length && !hasError) {
-                        startMockExamWithLoadedData(config, paperName, paperCode);
+                .then(encryptedText => {
+                    try {
+                        // 檢查數據是否為加密格式
+                        let data;
+                        
+                        // 嘗試解析為 JSON (未加密的情況)
+                        try {
+                            data = JSON.parse(encryptedText);
+                            console.log(`第${chapter}章數據似乎未加密，直接使用`);
+                        } catch (e) {
+                            // 不是有效的 JSON，嘗試解密
+                            console.log(`第${chapter}章數據可能已加密，嘗試解密`);
+                            data = decryptData(encryptedText, encryptionKey);
+                            
+                            if (!data) {
+                                throw new Error('解密失敗，請確認加密金鑰是否正確');
+                            }
+                        }
+                        
+                        loadedPapers[chapter] = data;
+                        loadedCount++;
+                        
+                        if (loadingText) {
+                            loadingText.textContent = `正在載入試卷數據 (${loadedCount}/${chaptersToLoad.length})...`;
+                        }
+                        
+                        // 所有數據都已載入
+                        if (loadedCount === chaptersToLoad.length && !hasError) {
+                            startMockExamWithLoadedData(config, paperName, paperCode);
+                        }
+                    } catch (error) {
+                        throw error;
                     }
                 })
                 .catch(error => {
