@@ -1,43 +1,21 @@
-// 加密/解密相關函數
-function encryptData(data, key) {
-    const encryptedData = CryptoJS.AES.encrypt(JSON.stringify(data), key).toString();
-    return encryptedData;
-}
+// ===== 全局變數定義 =====
 
-function decryptData(encryptedData, key) {
-    try {
-        console.log("開始解密數據...");
-        
-        // 嘗試解密
-        const bytes = CryptoJS.AES.decrypt(encryptedData, key);
-        const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-        
-        // 檢查解密結果是否為空
-        if (!decryptedText) {
-            console.log("解密結果為空");
-            return null;
-        }
-        
-        // 嘗試解析為 JSON
-        try {
-            const decryptedData = JSON.parse(decryptedText);
-            console.log("解密成功並解析為 JSON");
-            return decryptedData;
-        } catch (jsonError) {
-            console.error("解密後的內容不是有效的 JSON:", jsonError);
-            return null;
-        }
-    } catch (error) {
-        console.error("解密過程出錯:", error);
-        return null;
-    }
-}
-
-// 全局變數
+// 問題與答案相關變數
 let questionCount = 10; // 預設題目數量
 let originalQuizQuestions = [];
 let learningResources = null;
+let currentPaper = "";
+let currentPaperNumber = "";
+let quizQuestions = [];
+let userAnswers = {};
+let loadedPapers = {};
 
+// 計時相關變數
+let startTime;
+let timerInterval;
+
+
+// 試卷資料映射
 const paperNames = {
     "1": "卷一 (第一章 風險及保險)",
     "2": "卷一 (第二章 法律原則)",
@@ -68,6 +46,7 @@ const paperFiles = {
     "12": "data/paper12.json"
 };
 
+// 模擬考試配置
 // 卷一模擬考試配置
 const mockExamConfig = {
     duration: 120, // 考試時間（分鐘）
@@ -97,15 +76,9 @@ const mockExamPaper3Config = {
         "12": 11  // 第五章佔11題
     }
 };
-let currentPaper = "";
-let currentPaperNumber = "";
-let quizQuestions = [];
-let userAnswers = {};
-let startTime;
-let timerInterval;
-let loadedPapers = {};
 
-// DOM元素
+
+// DOM 元素引用
 const welcomeScreen = document.querySelector('.welcome-screen');
 const paperSelection = document.querySelector('.paper-selection');
 const loadingScreen = document.querySelector('.loading-screen');
@@ -125,275 +98,390 @@ const incorrectCount = document.getElementById('incorrect-count');
 const unansweredWarning = document.getElementById('unanswered-warning');
 const loadError = document.getElementById('load-error');
 
-// 新增 DOM 元素
+// 其餘 DOM 元素引用
 const keyVerificationScreen = document.querySelector('.key-verification');
 const keyVerificationLoading = document.getElementById('key-verification-loading');
 const keyError = document.getElementById('key-error');
 
+// ===== 初始化和核心功能函數 =====
 
-// 按鈕事件
-document.getElementById('start-btn').addEventListener('click', () => {
-    welcomeScreen.classList.remove('active');
-    paperSelection.classList.add('active');
-});
-
-document.querySelectorAll('.paper-btn').forEach(button => {
-    button.addEventListener('click', (e) => {
-        currentPaperNumber = e.target.dataset.paper;
-        currentPaper = paperNames[currentPaperNumber];
-        loadPaperData(currentPaperNumber);
-    });
-});
-
-document.getElementById('submit-btn').addEventListener('click', submitQuiz);
-
-document.getElementById('retry-same-btn').addEventListener('click', () => {
-    resultsContainer.classList.remove('active');
-     // 重置用戶答案
-     userAnswers = {};
-     // 隱藏未回答警告
-     unansweredWarning.classList.remove('show');
-
-
-    // 檢查是否是模擬考試
-    if (currentPaperNumber === "mock1" || currentPaperNumber === "mock3") {
-        // 對於模擬考試，使用保存的試卷名稱和題目
-        const config = currentPaperNumber === "mock1" ? mockExamConfig : mockExamPaper3Config;
-        const paperName = currentPaperNumber === "mock1" ? "卷一模擬考試" : "卷三模擬考試";
-        
-        // 重設試卷信息
-        currentPaper = paperName;
-        currentPaperInfo.textContent = `試卷：${currentPaper} (共${originalQuizQuestions.length}題，及格分數：${config.passScore}題)`;
-        
-        // 重用之前的題目
-        quizQuestions = [...originalQuizQuestions];
-        generateQuiz(quizQuestions);
-        
-        // 重新開始計時
-        startTime = new Date();
-        const examEndTime = new Date(startTime.getTime() + config.duration * 60 * 1000);
-        startTimerWithEndTime(examEndTime);
-        
-        // 顯示測驗畫面
-        quizContainer.classList.add('active');
-    } else {
-        // 一般試卷重測
-        startQuiz(currentPaperNumber, true); // 傳入 true 表示重用相同的題目
-    }
-});
-
-document.getElementById('retry-btn').addEventListener('click', () => {
-    resultsContainer.classList.remove('active');
-    quizContainer.classList.remove('active'); // 確保測驗畫面被隱藏
-    paperSelection.classList.add('active');
-});
-
-
-// 初始化頁面
+// 初始化應用程式
 function initApp() {
-  // 確保初始狀態只顯示金鑰驗證畫面
-  const keyVerificationScreen = document.querySelector('.key-verification');
-  const welcomeScreen = document.querySelector('.welcome-screen');
-  const paperSelection = document.querySelector('.paper-selection');
-  const loadingScreen = document.querySelector('.loading-screen');
-  const quizContainer = document.querySelector('.quiz-container');
-  const resultsContainer = document.querySelector('.results-container');
-  
-  // 確保只有金鑰驗證畫面是活躍的
-  keyVerificationScreen.classList.add('active');
-  welcomeScreen.classList.remove('active');
-  paperSelection.classList.remove('active');
-  loadingScreen.classList.remove('active');
-  quizContainer.classList.remove('active');
-  resultsContainer.classList.remove('active');
-  
-  // 確保載入指示器和錯誤訊息初始是隱藏的
-  const keyVerificationLoading = document.getElementById('key-verification-loading');
-  const keyError = document.getElementById('key-error');
-  if (keyVerificationLoading) keyVerificationLoading.classList.remove('show');
-  if (keyError) keyError.classList.remove('show');
-  
-  // 綁定金鑰驗證按鈕事件
-  document.getElementById('verify-key-btn').addEventListener('click', verifyKey);
-}
-
-// 驗證金鑰的函數
-function verifyKey() {
-    const encryptionKey = document.getElementById('encryptionKey').value;
-    const keyError = document.getElementById('key-error');
+    // 確保初始狀態只顯示金鑰驗證畫面
+    const keyVerificationScreen = document.querySelector('.key-verification');
+    const welcomeScreen = document.querySelector('.welcome-screen');
+    const paperSelection = document.querySelector('.paper-selection');
+    const loadingScreen = document.querySelector('.loading-screen');
+    const quizContainer = document.querySelector('.quiz-container');
+    const resultsContainer = document.querySelector('.results-container');
+    
+    // 確保只有金鑰驗證畫面是活躍的
+    keyVerificationScreen.classList.add('active');
+    welcomeScreen.classList.remove('active');
+    paperSelection.classList.remove('active');
+    loadingScreen.classList.remove('active');
+    quizContainer.classList.remove('active');
+    resultsContainer.classList.remove('active');
+    
+    // 確保載入指示器和錯誤訊息初始是隱藏的
     const keyVerificationLoading = document.getElementById('key-verification-loading');
-    
-    if (!encryptionKey) {
-        if (keyError) {
-            keyError.textContent = '請輸入加密金鑰';
-            keyError.classList.add('show');
-        }
-        return;
-    }
-    
-    // 顯示載入指示器
-    if (keyVerificationLoading) keyVerificationLoading.classList.add('show');
+    const keyError = document.getElementById('key-error');
+    if (keyVerificationLoading) keyVerificationLoading.classList.remove('show');
     if (keyError) keyError.classList.remove('show');
     
-    // 嘗試解密 paper1.json 作為測試
-    fetch('data/paper1.json')
+    // 綁定金鑰驗證按鈕事件
+    document.getElementById('verify-key-btn').addEventListener('click', verifyKey);
+    // 綁定查看歷史成績按鈕
+    document.getElementById('view-history-btn').addEventListener('click', showHistoryRecords);
+  }
+  
+  // 驗證金鑰的函數
+  function verifyKey() {
+      const encryptionKey = document.getElementById('encryptionKey').value;
+      const keyError = document.getElementById('key-error');
+      const keyVerificationLoading = document.getElementById('key-verification-loading');
+      
+      if (!encryptionKey) {
+          if (keyError) {
+              keyError.textContent = '請輸入加密金鑰';
+              keyError.classList.add('show');
+          }
+          return;
+      }
+      
+      // 顯示載入指示器
+      if (keyVerificationLoading) keyVerificationLoading.classList.add('show');
+      if (keyError) keyError.classList.remove('show');
+      
+      // 嘗試解密 paper1.json 作為測試
+      fetch('data/paper1.json')
+          .then(response => {
+              if (!response.ok) {
+                  throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
+              }
+              return response.text();
+          })
+          .then(encryptedText => {
+              try {
+                  // 首先嘗試直接解析為 JSON (未加密的情況)
+                  try {
+                      JSON.parse(encryptedText);
+                      console.log("文件是有效的 JSON，未加密，驗證通過");
+                      verificationSuccess(encryptionKey);
+                      return;
+                  } catch (e) {
+                      // 不是有效的 JSON，可能是加密的
+                      console.log("文件不是有效的 JSON，嘗試解密");
+                  }
+                  
+                  // 嘗試解密
+                  const bytes = CryptoJS.AES.decrypt(encryptedText, encryptionKey);
+                  const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                  
+                  // 檢查解密結果是否為空
+                  if (!decryptedText) {
+                      throw new Error('解密失敗，請確認加密金鑰是否正確');
+                  }
+                  
+                  // 嘗試解析解密後的 JSON
+                  try {
+                      JSON.parse(decryptedText);
+                      console.log("解密成功且結果是有效的 JSON");
+                      verificationSuccess(encryptionKey);
+                  } catch (jsonError) {
+                      throw new Error('解密結果不是有效的 JSON 格式');
+                  }
+              } catch (error) {
+                  console.error("解密失敗:", error);
+                  if (keyError) {
+                      keyError.textContent = '金鑰不正確，無法解密數據';
+                      keyError.classList.add('show');
+                  }
+              }
+          })
+          .catch(error => {
+              console.error("驗證過程出錯:", error);
+              if (keyError) {
+                  keyError.textContent = error.message || '載入數據失敗，請檢查網絡連接';
+                  keyError.classList.add('show');
+              }
+          })
+          .finally(() => {
+              // 隱藏載入指示器
+              if (keyVerificationLoading) keyVerificationLoading.classList.remove('show');
+          });
+  }
+  
+  
+  // 金鑰驗證成功後的處理
+  function verificationSuccess(key) {
+      console.log("金鑰驗證成功!");
+      
+      // 儲存加密金鑰到 sessionStorage 以便後續使用
+      sessionStorage.setItem('encryptionKey', key);
+      
+      // 隱藏金鑰驗證畫面，顯示歡迎畫面
+      document.querySelector('.key-verification').classList.remove('active');
+      document.querySelector('.welcome-screen').classList.add('active');
+  
+      // 載入學習資源
+      loadLearningResources(key);
+  }
+  
+  // 在頁面加載完成後執行初始化
+  window.addEventListener('DOMContentLoaded', initApp);
+
+
+// ===== 加密/解密相關函數 =====
+// 加密
+function encryptData(data, key) {
+    const encryptedData = CryptoJS.AES.encrypt(JSON.stringify(data), key).toString();
+    return encryptedData;
+}
+
+//解密相關函數
+function decryptData(encryptedData, key) {
+    try {
+        console.log("開始解密數據...");
+        
+        // 嘗試解密
+        const bytes = CryptoJS.AES.decrypt(encryptedData, key);
+        const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+        
+        // 檢查解密結果是否為空
+        if (!decryptedText) {
+            console.log("解密結果為空");
+            return null;
+        }
+        
+        // 嘗試解析為 JSON
+        try {
+            const decryptedData = JSON.parse(decryptedText);
+            console.log("解密成功並解析為 JSON");
+            return decryptedData;
+        } catch (jsonError) {
+            console.error("解密後的內容不是有效的 JSON:", jsonError);
+            return null;
+        }
+    } catch (error) {
+        console.error("解密過程出錯:", error);
+        return null;
+    }
+}
+
+
+// ===== 試卷載入與處理函數 =====
+// 從檔案載入試卷資料
+function loadPaperData(paperNumber) {
+    // 獲取用戶設定的題目數量
+    const inputCount = document.getElementById('question-count').value;
+    questionCount = parseInt(inputCount) || 10; // 如果輸入無效，使用預設值10
+    
+    // 限制題目數量在合理範圍內
+    questionCount = Math.max(1, Math.min(questionCount, 100));
+
+    // 從 sessionStorage 獲取加密金鑰
+   const encryptionKey = sessionStorage.getItem('encryptionKey');
+
+
+   // 如果已經載入過該試卷，直接使用
+   if (loadedPapers[paperNumber]) {
+       // 確保其他畫面被隱藏
+       paperSelection.classList.remove('active');
+       resultsContainer.classList.remove('active');
+       quizContainer.classList.remove('active'); // 先移除，避免疊加
+       startQuiz(paperNumber);
+       return;
+   }
+   
+   // 顯示載入畫面
+   paperSelection.classList.remove('active');
+   resultsContainer.classList.remove('active'); 
+   quizContainer.classList.remove('active'); 
+   loadingScreen.classList.add('active');
+   loadError.classList.remove('show');
+   
+   // 從檔案載入資料
+   const filePath = paperFiles[paperNumber];
+   console.log(`嘗試載入文件: ${filePath}`);
+   
+   fetch(filePath)
+       .then(response => {
+           if (!response.ok) {
+               throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
+           }
+           return response.text();
+       })
+       .then(encryptedText => {
+           console.log(`成功獲取試卷 ${paperNumber} 數據`);
+           
+       try {
+           // 檢查數據是否為加密格式
+           let data;
+           
+           // 嘗試解析為 JSON (未加密的情況)
+           try {
+               data = JSON.parse(encryptedText);
+               console.log("數據似乎未加密，直接使用");
+           } catch (e) {
+               // 不是有效的 JSON，嘗試解密
+               console.log("數據可能已加密，嘗試解密");
+               data = decryptData(encryptedText, encryptionKey);
+               
+               if (!data) {
+                   throw new Error('解密失敗，請確認加密金鑰是否正確');
+               }
+           }
+           
+           loadedPapers[paperNumber] = data;
+           
+           // 載入成功後開始測驗
+           loadingScreen.classList.remove('active');
+           startQuiz(paperNumber);
+       } catch (error) {
+           throw error;
+       }
+   })
+   .catch(error => {
+       console.error(`載入試卷資料失敗 (${paperNumber}):`, error);
+       loadingScreen.classList.remove('active');
+       paperSelection.classList.add('active');
+       loadError.textContent = `載入試卷資料時發生錯誤: ${error.message}`;
+       loadError.classList.add('show');
+   });
+}
+
+
+// 載入模擬考試所需的所有試卷數據
+function loadAllPapersForMockExam(config, paperName, paperCode) {
+    const chaptersToLoad = Object.keys(config.chapterDistribution);
+    let loadedCount = 0;
+    let hasError = false;
+    
+    // 從 sessionStorage 獲取加密金鑰
+    const encryptionKey = sessionStorage.getItem('encryptionKey');
+    
+    // 顯示載入進度
+    const loadingText = document.querySelector('.loading-screen p');
+    if (loadingText) {
+        loadingText.textContent = `正在載入試卷數據 (0/${chaptersToLoad.length})...`;
+    }
+    
+    // 載入每個章節的數據
+    chaptersToLoad.forEach(chapter => {
+        if (!loadedPapers[chapter]) {
+            fetch(paperFiles[chapter])
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`載入第${chapter}章數據失敗: ${response.status}`);
+                    }
+                    return response.text();  // 改為返回文本而非直接解析為JSON
+                })
+                .then(encryptedText => {
+                    try {
+                        // 檢查數據是否為加密格式
+                        let data;
+                        
+                        // 嘗試解析為 JSON (未加密的情況)
+                        try {
+                            data = JSON.parse(encryptedText);
+                            console.log(`第${chapter}章數據似乎未加密，直接使用`);
+                        } catch (e) {
+                            // 不是有效的 JSON，嘗試解密
+                            console.log(`第${chapter}章數據可能已加密，嘗試解密`);
+                            data = decryptData(encryptedText, encryptionKey);
+                            
+                            if (!data) {
+                                throw new Error('解密失敗，請確認加密金鑰是否正確');
+                            }
+                        }
+                        
+                        loadedPapers[chapter] = data;
+                        loadedCount++;
+                        
+                        if (loadingText) {
+                            loadingText.textContent = `正在載入試卷數據 (${loadedCount}/${chaptersToLoad.length})...`;
+                        }
+                        
+                        // 所有數據都已載入
+                        if (loadedCount === chaptersToLoad.length && !hasError) {
+                            startMockExamWithLoadedData(config, paperName, paperCode);
+                        }
+                    } catch (error) {
+                        throw error;
+                    }
+                })
+                .catch(error => {
+                    console.error(`載入第${chapter}章數據失敗:`, error);
+                    hasError = true;
+                    loadingScreen.classList.remove('active');
+                    paperSelection.classList.add('active');
+                    loadError.textContent = `載入試卷數據失敗: ${error.message}`;
+                    loadError.classList.add('show');
+                });
+        } else {
+            loadedCount++;
+            if (loadingText) {
+                loadingText.textContent = `正在載入試卷數據 (${loadedCount}/${chaptersToLoad.length})...`;
+            }
+            
+            // 所有數據都已載入
+            if (loadedCount === chaptersToLoad.length && !hasError) {
+                startMockExamWithLoadedData(config, paperName, paperCode);
+            }
+        }
+    });
+    
+    // 如果所有數據已經載入過
+    if (loadedCount === chaptersToLoad.length && !hasError) {
+        startMockExamWithLoadedData(config, paperName, paperCode);
+    }
+}
+
+
+// 載入學習資源
+function loadLearningResources(encryptionKey) {
+    const resourceContainer = document.getElementById('learning-resources-container');
+    
+    // 顯示載入中訊息
+    resourceContainer.innerHTML = '<p class="loading-resources">正在載入學習資源...</p>';
+    
+    fetch('data/learn.json')
         .then(response => {
             if (!response.ok) {
-                throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
+                throw new Error('無法載入學習資源');
             }
             return response.text();
         })
         .then(encryptedText => {
             try {
-                // 首先嘗試直接解析為 JSON (未加密的情況)
+                // 嘗試解析為 JSON (未加密的情況)
                 try {
-                    JSON.parse(encryptedText);
-                    console.log("文件是有效的 JSON，未加密，驗證通過");
-                    verificationSuccess(encryptionKey);
-                    return;
+                    learningResources = JSON.parse(encryptedText);
+                    renderLearningResources(learningResources);
                 } catch (e) {
-                    // 不是有效的 JSON，可能是加密的
-                    console.log("文件不是有效的 JSON，嘗試解密");
-                }
-                
-                // 嘗試解密
-                const bytes = CryptoJS.AES.decrypt(encryptedText, encryptionKey);
-                const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
-                
-                // 檢查解密結果是否為空
-                if (!decryptedText) {
-                    throw new Error('解密失敗，請確認加密金鑰是否正確');
-                }
-                
-                // 嘗試解析解密後的 JSON
-                try {
-                    JSON.parse(decryptedText);
-                    console.log("解密成功且結果是有效的 JSON");
-                    verificationSuccess(encryptionKey);
-                } catch (jsonError) {
-                    throw new Error('解密結果不是有效的 JSON 格式');
+                    // 不是有效的 JSON，嘗試解密
+                    const decryptedData = decryptData(encryptedText, encryptionKey);
+                    
+                    if (!decryptedData) {
+                        throw new Error('解密學習資源失敗');
+                    }
+                    
+                    learningResources = decryptedData;
+                    renderLearningResources(learningResources);
                 }
             } catch (error) {
-                console.error("解密失敗:", error);
-                if (keyError) {
-                    keyError.textContent = '金鑰不正確，無法解密數據';
-                    keyError.classList.add('show');
-                }
+                console.error('載入學習資源失敗:', error);
+                resourceContainer.innerHTML = '<p class="error-message">載入學習資源失敗，請重新整理頁面或聯繫管理員。</p>';
             }
         })
         .catch(error => {
-            console.error("驗證過程出錯:", error);
-            if (keyError) {
-                keyError.textContent = error.message || '載入數據失敗，請檢查網絡連接';
-                keyError.classList.add('show');
-            }
-        })
-        .finally(() => {
-            // 隱藏載入指示器
-            if (keyVerificationLoading) keyVerificationLoading.classList.remove('show');
+            console.error('載入學習資源失敗:', error);
+            resourceContainer.innerHTML = '<p class="error-message">載入學習資源失敗，請重新整理頁面或聯繫管理員。</p>';
         });
 }
 
-
-// 金鑰驗證成功後的處理
-function verificationSuccess(key) {
-    console.log("金鑰驗證成功!");
-    
-    // 儲存加密金鑰到 sessionStorage 以便後續使用
-    sessionStorage.setItem('encryptionKey', key);
-    
-    // 隱藏金鑰驗證畫面，顯示歡迎畫面
-    document.querySelector('.key-verification').classList.remove('active');
-    document.querySelector('.welcome-screen').classList.add('active');
-
-    // 載入學習資源
-    loadLearningResources(key);
-}
-
-// 在頁面加載完成後執行初始化
-window.addEventListener('DOMContentLoaded', initApp);
-
-
-// 從檔案載入試卷資料
-function loadPaperData(paperNumber) {
-     // 獲取用戶設定的題目數量
-     const inputCount = document.getElementById('question-count').value;
-     questionCount = parseInt(inputCount) || 10; // 如果輸入無效，使用預設值10
-     
-     // 限制題目數量在合理範圍內
-     questionCount = Math.max(1, Math.min(questionCount, 100));
-
-     // 從 sessionStorage 獲取加密金鑰
-    const encryptionKey = sessionStorage.getItem('encryptionKey');
- 
-
-    // 如果已經載入過該試卷，直接使用
-    if (loadedPapers[paperNumber]) {
-        // 確保其他畫面被隱藏
-        paperSelection.classList.remove('active');
-        resultsContainer.classList.remove('active');
-        quizContainer.classList.remove('active'); // 先移除，避免疊加
-        startQuiz(paperNumber);
-        return;
-    }
-    
-    // 顯示載入畫面
-    paperSelection.classList.remove('active');
-    resultsContainer.classList.remove('active'); 
-    quizContainer.classList.remove('active'); 
-    loadingScreen.classList.add('active');
-    loadError.classList.remove('show');
-    
-    // 從檔案載入資料
-    const filePath = paperFiles[paperNumber];
-    console.log(`嘗試載入文件: ${filePath}`);
-    
-    fetch(filePath)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
-            }
-            return response.text();
-        })
-        .then(encryptedText => {
-            console.log(`成功獲取試卷 ${paperNumber} 數據`);
-            
-        try {
-            // 檢查數據是否為加密格式
-            let data;
-            
-            // 嘗試解析為 JSON (未加密的情況)
-            try {
-                data = JSON.parse(encryptedText);
-                console.log("數據似乎未加密，直接使用");
-            } catch (e) {
-                // 不是有效的 JSON，嘗試解密
-                console.log("數據可能已加密，嘗試解密");
-                data = decryptData(encryptedText, encryptionKey);
-                
-                if (!data) {
-                    throw new Error('解密失敗，請確認加密金鑰是否正確');
-                }
-            }
-            
-            loadedPapers[paperNumber] = data;
-            
-            // 載入成功後開始測驗
-            loadingScreen.classList.remove('active');
-            startQuiz(paperNumber);
-        } catch (error) {
-            throw error;
-        }
-    })
-    .catch(error => {
-        console.error(`載入試卷資料失敗 (${paperNumber}):`, error);
-        loadingScreen.classList.remove('active');
-        paperSelection.classList.add('active');
-        loadError.textContent = `載入試卷資料時發生錯誤: ${error.message}`;
-        loadError.classList.add('show');
-    });
-}
-
+// ===== 測驗生成與顯示函數 =====
 // 開始測驗
 function startQuiz(paperNumber, reuseQuestions = false) {
     // 重置使用者答案
@@ -444,21 +532,6 @@ function startQuiz(paperNumber, reuseQuestions = false) {
     startTimer();
 }
 
-
-// 從陣列中隨機選取指定數量的元素
-function getRandomQuestions(arr, n) {
-    // 複製陣列，避免修改原陣列
-    const shuffled = [...arr];
-    
-    // Fisher-Yates 洗牌算法
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    
-    // 返回前n個元素
-    return shuffled.slice(0, n);
-}
 
 // 生成測驗界面
 function generateQuiz(questions) {
@@ -516,6 +589,21 @@ function generateQuiz(questions) {
     updateProgress();
 }
 
+// 從陣列中隨機選取指定數量的元素
+function getRandomQuestions(arr, n) {
+    // 複製陣列，避免修改原陣列
+    const shuffled = [...arr];
+    
+    // Fisher-Yates 洗牌算法
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    
+    // 返回前n個元素
+    return shuffled.slice(0, n);
+}
+
 // 從題目文字中提取選項
 function extractOptions(questionText) {
     const options = [];
@@ -545,6 +633,21 @@ function extractOptions(questionText) {
     return options;
 }
 
+// 開始模擬考試
+function startMockExam(config, paperName, paperCode) {
+    // 設置題目數量
+    questionCount = config.totalQuestions;
+    
+    // 顯示載入畫面
+    paperSelection.classList.remove('active');
+    loadingScreen.classList.add('active');
+    loadError.classList.remove('show');
+    
+    // 載入所有需要的試卷數據
+    loadAllPapersForMockExam(config, paperName, paperCode);
+}
+
+// ===== 測驗進行中功能函數 =====
 // 更新進度條
 function updateProgress() {
     const answeredCount = Object.keys(userAnswers).length;
@@ -576,6 +679,32 @@ function startTimer() {
     }, 1000);
 }
 
+// 帶有結束時間的計時器
+function startTimerWithEndTime(endTime) {
+    clearInterval(timerInterval);
+    
+    timerInterval = setInterval(() => {
+        const now = new Date();
+        const timeDiff = endTime - now;
+        
+        if (timeDiff <= 0) {
+            // 時間到，自動提交
+            clearInterval(timerInterval);
+            alert("考試時間已到！系統將自動提交您的答案。");
+            submitQuiz();
+            return;
+        }
+        
+        // 計算剩餘時間
+        const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+        
+        quizTimer.textContent = `剩餘時間: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }, 1000);
+}
+
+// ===== 測驗提交與結果處理函數 =====
 // 提交測驗
 function submitQuiz() {
     // 檢查是否所有題目都已回答
@@ -738,8 +867,72 @@ function showResults(results) {
         
         resultDiv.innerHTML = resultHTML;
         resultsListContainer.appendChild(resultDiv);
+
     });
+    // 儲存測驗結果
+    saveTestResult(currentPaperNumber, results);
 }
+
+
+// ===== 事件處理函數 =====
+
+// 按鈕事件
+document.getElementById('start-btn').addEventListener('click', () => {
+    welcomeScreen.classList.remove('active');
+    paperSelection.classList.add('active');
+});
+
+document.querySelectorAll('.paper-btn').forEach(button => {
+    button.addEventListener('click', (e) => {
+        currentPaperNumber = e.target.dataset.paper;
+        currentPaper = paperNames[currentPaperNumber];
+        loadPaperData(currentPaperNumber);
+    });
+});
+
+document.getElementById('submit-btn').addEventListener('click', submitQuiz);
+
+document.getElementById('retry-same-btn').addEventListener('click', () => {
+    resultsContainer.classList.remove('active');
+     // 重置用戶答案
+     userAnswers = {};
+     // 隱藏未回答警告
+     unansweredWarning.classList.remove('show');
+
+
+    // 檢查是否是模擬考試
+    if (currentPaperNumber === "mock1" || currentPaperNumber === "mock3") {
+        // 對於模擬考試，使用保存的試卷名稱和題目
+        const config = currentPaperNumber === "mock1" ? mockExamConfig : mockExamPaper3Config;
+        const paperName = currentPaperNumber === "mock1" ? "卷一模擬考試" : "卷三模擬考試";
+        
+        // 重設試卷信息
+        currentPaper = paperName;
+        currentPaperInfo.textContent = `試卷：${currentPaper} (共${originalQuizQuestions.length}題，及格分數：${config.passScore}題)`;
+        
+        // 重用之前的題目
+        quizQuestions = [...originalQuizQuestions];
+        generateQuiz(quizQuestions);
+        
+        // 重新開始計時
+        startTime = new Date();
+        const examEndTime = new Date(startTime.getTime() + config.duration * 60 * 1000);
+        startTimerWithEndTime(examEndTime);
+        
+        // 顯示測驗畫面
+        quizContainer.classList.add('active');
+    } else {
+        // 一般試卷重測
+        startQuiz(currentPaperNumber, true); // 傳入 true 表示重用相同的題目
+    }
+});
+
+document.getElementById('retry-btn').addEventListener('click', () => {
+    resultsContainer.classList.remove('active');
+    quizContainer.classList.remove('active'); // 確保測驗畫面被隱藏
+    paperSelection.classList.add('active');
+});
+
 
 // 模擬考試按鈕事件監聽
 document.getElementById('mock-exam-btn-paper1').addEventListener('click', () => {
@@ -751,105 +944,6 @@ document.getElementById('mock-exam-btn-paper3').addEventListener('click', () => 
 });
 
 
-// 開始模擬考試
-function startMockExam(config, paperName, paperCode) {
-    // 設置題目數量
-    questionCount = config.totalQuestions;
-    
-    // 顯示載入畫面
-    paperSelection.classList.remove('active');
-    loadingScreen.classList.add('active');
-    loadError.classList.remove('show');
-    
-    // 載入所有需要的試卷數據
-    loadAllPapersForMockExam(config, paperName, paperCode);
-}
-
-// 載入模擬考試所需的所有試卷數據
-function loadAllPapersForMockExam(config, paperName, paperCode) {
-    const chaptersToLoad = Object.keys(config.chapterDistribution);
-    let loadedCount = 0;
-    let hasError = false;
-    
-    // 從 sessionStorage 獲取加密金鑰
-    const encryptionKey = sessionStorage.getItem('encryptionKey');
-    
-    // 顯示載入進度
-    const loadingText = document.querySelector('.loading-screen p');
-    if (loadingText) {
-        loadingText.textContent = `正在載入試卷數據 (0/${chaptersToLoad.length})...`;
-    }
-    
-    // 載入每個章節的數據
-    chaptersToLoad.forEach(chapter => {
-        if (!loadedPapers[chapter]) {
-            fetch(paperFiles[chapter])
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`載入第${chapter}章數據失敗: ${response.status}`);
-                    }
-                    return response.text();  // 改為返回文本而非直接解析為JSON
-                })
-                .then(encryptedText => {
-                    try {
-                        // 檢查數據是否為加密格式
-                        let data;
-                        
-                        // 嘗試解析為 JSON (未加密的情況)
-                        try {
-                            data = JSON.parse(encryptedText);
-                            console.log(`第${chapter}章數據似乎未加密，直接使用`);
-                        } catch (e) {
-                            // 不是有效的 JSON，嘗試解密
-                            console.log(`第${chapter}章數據可能已加密，嘗試解密`);
-                            data = decryptData(encryptedText, encryptionKey);
-                            
-                            if (!data) {
-                                throw new Error('解密失敗，請確認加密金鑰是否正確');
-                            }
-                        }
-                        
-                        loadedPapers[chapter] = data;
-                        loadedCount++;
-                        
-                        if (loadingText) {
-                            loadingText.textContent = `正在載入試卷數據 (${loadedCount}/${chaptersToLoad.length})...`;
-                        }
-                        
-                        // 所有數據都已載入
-                        if (loadedCount === chaptersToLoad.length && !hasError) {
-                            startMockExamWithLoadedData(config, paperName, paperCode);
-                        }
-                    } catch (error) {
-                        throw error;
-                    }
-                })
-                .catch(error => {
-                    console.error(`載入第${chapter}章數據失敗:`, error);
-                    hasError = true;
-                    loadingScreen.classList.remove('active');
-                    paperSelection.classList.add('active');
-                    loadError.textContent = `載入試卷數據失敗: ${error.message}`;
-                    loadError.classList.add('show');
-                });
-        } else {
-            loadedCount++;
-            if (loadingText) {
-                loadingText.textContent = `正在載入試卷數據 (${loadedCount}/${chaptersToLoad.length})...`;
-            }
-            
-            // 所有數據都已載入
-            if (loadedCount === chaptersToLoad.length && !hasError) {
-                startMockExamWithLoadedData(config, paperName, paperCode);
-            }
-        }
-    });
-    
-    // 如果所有數據已經載入過
-    if (loadedCount === chaptersToLoad.length && !hasError) {
-        startMockExamWithLoadedData(config, paperName, paperCode);
-    }
-}
 
 // 使用已載入的數據開始模擬考試
 function startMockExamWithLoadedData(config, paperName, paperCode) {
@@ -902,30 +996,6 @@ function startMockExamWithLoadedData(config, paperName, paperCode) {
     quizContainer.classList.add('active');
 }
 
-// 帶有結束時間的計時器
-function startTimerWithEndTime(endTime) {
-    clearInterval(timerInterval);
-    
-    timerInterval = setInterval(() => {
-        const now = new Date();
-        const timeDiff = endTime - now;
-        
-        if (timeDiff <= 0) {
-            // 時間到，自動提交
-            clearInterval(timerInterval);
-            alert("考試時間已到！系統將自動提交您的答案。");
-            submitQuiz();
-            return;
-        }
-        
-        // 計算剩餘時間
-        const hours = Math.floor(timeDiff / (1000 * 60 * 60));
-        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
-        
-        quizTimer.textContent = `剩餘時間: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    }, 1000);
-}
 
 // 在 script.js 文件末尾添加以下代碼
 
@@ -1041,47 +1111,6 @@ document.getElementById('back-to-papers-btn').addEventListener('click', () => {
     }
 });
 
-// 載入學習資源
-function loadLearningResources(encryptionKey) {
-    const resourceContainer = document.getElementById('learning-resources-container');
-    
-    // 顯示載入中訊息
-    resourceContainer.innerHTML = '<p class="loading-resources">正在載入學習資源...</p>';
-    
-    fetch('data/learn.json')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('無法載入學習資源');
-            }
-            return response.text();
-        })
-        .then(encryptedText => {
-            try {
-                // 嘗試解析為 JSON (未加密的情況)
-                try {
-                    learningResources = JSON.parse(encryptedText);
-                    renderLearningResources(learningResources);
-                } catch (e) {
-                    // 不是有效的 JSON，嘗試解密
-                    const decryptedData = decryptData(encryptedText, encryptionKey);
-                    
-                    if (!decryptedData) {
-                        throw new Error('解密學習資源失敗');
-                    }
-                    
-                    learningResources = decryptedData;
-                    renderLearningResources(learningResources);
-                }
-            } catch (error) {
-                console.error('載入學習資源失敗:', error);
-                resourceContainer.innerHTML = '<p class="error-message">載入學習資源失敗，請重新整理頁面或聯繫管理員。</p>';
-            }
-        })
-        .catch(error => {
-            console.error('載入學習資源失敗:', error);
-            resourceContainer.innerHTML = '<p class="error-message">載入學習資源失敗，請重新整理頁面或聯繫管理員。</p>';
-        });
-}
 
 // 渲染學習資源
 function renderLearningResources(resources) {
@@ -1191,3 +1220,156 @@ document.getElementById('hide-resources-btn').addEventListener('click', () => {
     // 顯示按鈕
     document.getElementById('show-resources-btn').style.display = 'inline-block';
 });
+
+// 儲存測驗結果
+function saveTestResult(paperNumber, results) {
+    // 獲取現有的結果記錄
+    let savedResults = JSON.parse(localStorage.getItem('testResults')) || {};
+        
+    // 建立新的結果記錄
+    const resultRecord = {
+        paperName: currentPaper,
+        score: results.score,
+        correctCount: results.correctCount,
+        totalQuestions: results.totalQuestions,
+        timeUsed: results.timeUsed,
+        timestamp: new Date().toISOString()
+    };
+    
+    // 如果該試卷沒有記錄，創建一個新陣列
+    if (!savedResults[paperNumber]) {
+        savedResults[paperNumber] = [];
+    }
+    
+    // 檢查是否已經有完全相同的記錄 (避免重複儲存)
+    const isDuplicate = savedResults[paperNumber].some(record => 
+        record.score === resultRecord.score && 
+        record.correctCount === resultRecord.correctCount && 
+        record.totalQuestions === resultRecord.totalQuestions &&
+        Math.abs(new Date(record.timestamp) - new Date(resultRecord.timestamp)) < 1000 // 1秒內的視為重複
+    );
+    
+    // 如果不是重複記錄，才添加
+    if (!isDuplicate) {
+        savedResults[paperNumber].push(resultRecord);
+        localStorage.setItem('testResults', JSON.stringify(savedResults));
+        console.log('測驗結果已儲存');
+    } else {
+        console.log('避免重複儲存相同的測驗結果');
+    }
+}
+  
+ // 顯示歷史成績
+function showHistoryRecords() {
+    // 先移除任何已存在的歷史記錄模態框
+    const existingModal = document.querySelector('.history-modal');
+    if (existingModal) {
+        document.body.removeChild(existingModal);
+    }
+
+    const savedResults = JSON.parse(localStorage.getItem('testResults')) || {};
+    
+    // 創建模態框容器
+    const modalContainer = document.createElement('div');
+    modalContainer.className = 'modal history-modal';
+    modalContainer.style.display = 'block'; // 關鍵修改：確保模態框顯示
+    
+    let modalContent = `
+        <div class="modal-content history-modal-container">
+            <span class="close-modal">&times;</span>
+            <h3>測驗歷史記錄</h3>
+            <div class="history-container">
+    `;
+    
+    // 檢查是否有記錄
+    if (Object.keys(savedResults).length === 0) {
+        modalContent += `<p class="no-records">尚無測驗記錄</p>`;
+    } else {
+        // 為每個試卷創建記錄表格
+        for (const paperNumber in savedResults) {
+            const paperRecords = savedResults[paperNumber];
+            const paperName = paperNames[paperNumber] || `試卷 ${paperNumber}`;
+            
+            modalContent += `
+                <div class="paper-history">
+                    <h4>${paperName}</h4>
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>日期</th>
+                                <th>分數</th>
+                                <th>答對題數</th>
+                                <th>總題數</th>
+                                <th>用時</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            // 添加每條記錄
+            paperRecords.forEach(record => {
+                const date = new Date(record.timestamp).toLocaleString('zh-TW');
+                const timeUsedStr = record.timeUsed ? `${record.timeUsed.minutes}:${record.timeUsed.seconds}` : "00:00";
+                modalContent += `
+                    <tr>
+                        <td>${date}</td>
+                        <td>${record.score}%</td>
+                        <td>${record.correctCount}</td>
+                        <td>${record.totalQuestions || quizQuestions.length}</td>
+                        <td>${timeUsedStr}</td>
+                    </tr>
+                `;
+            });
+            
+            
+            modalContent += `
+                    </tbody>
+                </table>
+            </div>
+            `;
+        }
+    }
+
+    modalContent += `
+            </div>
+            <!-- 添加清除歷史記錄按鈕 -->
+            <div class="center-buttons">
+                <button class="btn" id="clear-history-btn">清除歷史記錄</button>
+            </div>
+        </div>
+    `;
+    
+    modalContainer.innerHTML = modalContent;
+    document.body.appendChild(modalContainer);
+
+    // 添加清除按鈕事件
+    const clearBtn = document.getElementById('clear-history-btn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            if (confirm('確定要清除所有測驗歷史記錄嗎？此操作無法復原。')) {
+                localStorage.removeItem('testResults');
+                alert('歷史記錄已清除');
+                document.body.removeChild(modalContainer);
+            }
+        });
+    }
+    
+    // 添加關閉按鈕事件
+    const closeBtn = modalContainer.querySelector('.close-modal');
+    closeBtn.addEventListener('click', () => {
+        document.body.removeChild(modalContainer);
+    });
+   
+    // 點擊模態框外部關閉
+    window.addEventListener('click', function closeModal(event) {
+        if (event.target === modalContainer) {
+            document.body.removeChild(modalContainer);
+            window.removeEventListener('click', closeModal);
+        }
+    }); 
+}
+
+  
+  // 添加按鈕事件監聽
+document.getElementById('view-history-btn').addEventListener('click', showHistoryRecords);
+  
