@@ -36,6 +36,7 @@ function decryptData(encryptedData, key) {
 // 全局變數
 let questionCount = 10; // 預設題目數量
 let originalQuizQuestions = [];
+let learningResources = null;
 
 const paperNames = {
     "1": "卷一 (第一章 風險及保險)",
@@ -187,53 +188,6 @@ document.getElementById('retry-btn').addEventListener('click', () => {
     paperSelection.classList.add('active');
 });
 
-// 驗證加密金鑰
-function verifyEncryptionKey(key) {
-    return new Promise((resolve, reject) => {
-        // 顯示載入指示器
-        keyVerificationLoading.classList.add('show');
-        keyError.classList.remove('show');
-        
-        // 嘗試解密 paper1.json 作為測試
-        fetch('data/paper1.json')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
-                }
-                return response.text();
-            })
-            .then(encryptedText => {
-                try {
-                    // 嘗試解析為 JSON (未加密的情況)
-                    try {
-                        JSON.parse(encryptedText);
-                        // 如果是有效的 JSON，說明未加密，直接通過驗證
-                        resolve(true);
-                    } catch (e) {
-                        // 不是有效的 JSON，嘗試解密
-                        const decryptedData = decryptData(encryptedText, key);
-                        
-                        if (!decryptedData) {
-                            throw new Error('解密失敗，請確認加密金鑰是否正確');
-                        }
-                        
-                        // 解密成功
-                        resolve(true);
-                    }
-                } catch (error) {
-                    reject(error);
-                }
-            })
-            .catch(error => {
-                reject(error);
-            })
-            .finally(() => {
-                // 隱藏載入指示器
-                keyVerificationLoading.classList.remove('show');
-            });
-    });
-}
-
 
 // 初始化頁面
 function initApp() {
@@ -348,12 +302,12 @@ function verificationSuccess(key) {
     // 儲存加密金鑰到 sessionStorage 以便後續使用
     sessionStorage.setItem('encryptionKey', key);
     
-    // 切換到歡迎畫面
-    const keyVerificationScreen = document.querySelector('.key-verification');
-    const welcomeScreen = document.querySelector('.welcome-screen');
-    
-    if (keyVerificationScreen) keyVerificationScreen.classList.remove('active');
-    if (welcomeScreen) welcomeScreen.classList.add('active');
+    // 隱藏金鑰驗證畫面，顯示歡迎畫面
+    document.querySelector('.key-verification').classList.remove('active');
+    document.querySelector('.welcome-screen').classList.add('active');
+
+    // 載入學習資源
+    loadLearningResources(key);
 }
 
 // 在頁面加載完成後執行初始化
@@ -1087,4 +1041,153 @@ document.getElementById('back-to-papers-btn').addEventListener('click', () => {
     }
 });
 
+// 載入學習資源
+function loadLearningResources(encryptionKey) {
+    const resourceContainer = document.getElementById('learning-resources-container');
+    
+    // 顯示載入中訊息
+    resourceContainer.innerHTML = '<p class="loading-resources">正在載入學習資源...</p>';
+    
+    fetch('data/learn.json')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('無法載入學習資源');
+            }
+            return response.text();
+        })
+        .then(encryptedText => {
+            try {
+                // 嘗試解析為 JSON (未加密的情況)
+                try {
+                    learningResources = JSON.parse(encryptedText);
+                    renderLearningResources(learningResources);
+                } catch (e) {
+                    // 不是有效的 JSON，嘗試解密
+                    const decryptedData = decryptData(encryptedText, encryptionKey);
+                    
+                    if (!decryptedData) {
+                        throw new Error('解密學習資源失敗');
+                    }
+                    
+                    learningResources = decryptedData;
+                    renderLearningResources(learningResources);
+                }
+            } catch (error) {
+                console.error('載入學習資源失敗:', error);
+                resourceContainer.innerHTML = '<p class="error-message">載入學習資源失敗，請重新整理頁面或聯繫管理員。</p>';
+            }
+        })
+        .catch(error => {
+            console.error('載入學習資源失敗:', error);
+            resourceContainer.innerHTML = '<p class="error-message">載入學習資源失敗，請重新整理頁面或聯繫管理員。</p>';
+        });
+}
 
+// 渲染學習資源
+function renderLearningResources(resources) {
+    const resourceContainer = document.getElementById('learning-resources-container');
+    
+    if (!resources || !resources.paper1) {
+        resourceContainer.innerHTML = '<p class="error-message">無法載入學習資源或格式不正確。</p>';
+        return;
+    }
+    
+    // 清空容器
+    resourceContainer.innerHTML = '';
+    
+    // 卷一資源
+    const paper1Resources = resources.paper1;
+    if (paper1Resources && paper1Resources.length > 0) {
+        const paper1Section = document.createElement('div');
+        paper1Section.innerHTML = `<h4>卷一 保險原理及實務</h4>`;
+        
+        const resourceList = document.createElement('ul');
+        resourceList.className = 'resource-links';
+        
+        paper1Resources.forEach(resource => {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `
+                <div class="resource-item">
+                    <a href="${resource.url}" target="_blank">${resource.title}</a>
+                    ${resource.mindmap ? `<button class="mindmap-btn" data-mindmap="${resource.mindmap}">查看思維導圖</button>` : ''}
+                </div>
+            `;
+            resourceList.appendChild(listItem);
+        });
+        
+        paper1Section.appendChild(resourceList);
+        resourceContainer.appendChild(paper1Section);
+    }
+    
+    // 卷三資源 (如果存在)
+    const paper3Resources = resources.paper3;
+    if (paper3Resources && paper3Resources.length > 0) {
+        const paper3Section = document.createElement('div');
+        paper3Section.innerHTML = `<h4>卷三 長期保險</h4>`;
+        
+        const resourceList = document.createElement('ul');
+        resourceList.className = 'resource-links';
+        
+        paper3Resources.forEach(resource => {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `
+                <div class="resource-item">
+                    <a href="${resource.url}" target="_blank">${resource.title}</a>
+                    ${resource.mindmap ? `<button class="mindmap-btn" data-mindmap="${resource.mindmap}">查看思維導圖</button>` : ''}
+                </div>
+            `;
+            resourceList.appendChild(listItem);
+        });
+        
+        paper3Section.appendChild(resourceList);
+        resourceContainer.appendChild(paper3Section);
+    }
+    
+    // 綁定思維導圖按鈕事件
+    bindMindmapButtons();
+}
+
+// 綁定思維導圖按鈕
+function bindMindmapButtons() {
+    document.querySelectorAll('.mindmap-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const mindmapPath = this.getAttribute('data-mindmap');
+            const resourceTitle = this.closest('.resource-item').querySelector('a').textContent;
+            
+            // 使用現有的模態框
+            const modal = document.getElementById('mindmap-modal');
+            const modalImage = document.getElementById('mindmap-image');
+            const modalTitle = document.getElementById('mindmap-title');
+            
+            // 設置模態框內容
+            modalTitle.textContent = `思維導圖 - ${resourceTitle}`;
+            modalImage.src = mindmapPath;
+            
+            // 顯示模態框
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        });
+    });
+}
+
+// 添加學習資源按鈕事件監聽器
+document.getElementById('show-resources-btn').addEventListener('click', () => {
+    // 顯示學習資源區塊
+    document.getElementById('study-resources-container').style.display = 'block';
+    // 隱藏顯示按鈕
+    document.getElementById('show-resources-btn').style.display = 'none';
+    
+    // 如果尚未載入學習資源，則載入
+    if (!learningResources) {
+        const encryptionKey = sessionStorage.getItem('encryptionKey');
+        loadLearningResources(encryptionKey);
+    }
+});
+
+// 添加關閉學習資源按鈕事件監聽器
+document.getElementById('hide-resources-btn').addEventListener('click', () => {
+    // 隱藏學習資源區塊
+    document.getElementById('study-resources-container').style.display = 'none';
+    // 顯示按鈕
+    document.getElementById('show-resources-btn').style.display = 'inline-block';
+});

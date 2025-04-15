@@ -611,3 +611,81 @@ h2 {
     10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
     20%, 40%, 60%, 80% { transform: translateX(5px); }
 }
+
+/* 表單群組樣式 */
+.form-group {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.form-group input {
+    padding: 10px;
+    width: 80%;
+    max-width: 300px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+    margin-top: 5px;
+}
+
+/* 資源載入中提示樣式 */
+.loading-resources {
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    padding: 10px;
+}
+
+/* 題目數量選擇器容器樣式 */
+.question-count-container {
+    text-align: center;
+    margin: 20px 0;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+}
+
+.question-count-container input {
+    width: 60px;
+    padding: 5px;
+    margin-left: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-align: center;
+}
+
+/* 卷三模擬考試按鈕特定樣式 */
+.mock-exam-btn-paper3 {
+    margin-top: 15px;
+    background-color: #9b59b6;
+}
+
+.mock-exam-btn-paper3:hover {
+    background-color: #8e44ad;
+}
+
+/* 學習資源按鈕樣式 */
+.resource-btn {
+    background-color: #27ae60;
+    margin-bottom: 20px;
+}
+
+.resource-btn:hover {
+    background-color: #219653;
+}
+
+/* 學習資源區塊過渡效果 */
+.study-resources {
+    transition: all 0.3s ease;
+    margin-bottom: 20px;
+}
+
+/* 資源區塊顯示動畫 */
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.study-resources[style*="display: block"] {
+    animation: slideDown 0.3s ease forwards;
+}

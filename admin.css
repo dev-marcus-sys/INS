@@ -1,0 +1,74 @@
+.admin-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+textarea {
+    width: 100%;
+    min-height: 200px;
+    margin-bottom: 20px;
+    padding: 10px;
+    font-family: monospace;
+}
+.form-group {
+    margin-bottom: 20px;
+}
+.main-tab-buttons {
+    display: flex;
+    margin-bottom: 20px;
+}
+.main-tab-button {
+    flex: 1;
+    padding: 12px;
+    background-color: #f0f0f0;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s;
+    font-size: 16px;
+}
+.main-tab-button.active {
+    background-color: #2c3e50;
+    color: white;
+}
+.sub-tab-buttons {
+    display: flex;
+    margin-bottom: 20px;
+}
+.sub-tab-button {
+    flex: 1;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s;
+}
+.sub-tab-button.active {
+    background-color: #3498db;
+    color: white;
+}
+.main-tab-content {
+    display: none;
+}
+.main-tab-content.active {
+    display: block;
+}
+.sub-tab-content {
+    display: none;
+}
+.sub-tab-content.active {
+    display: block;
+}
+.success-message {
+    color: #28a745;
+    font-weight: bold;
+    margin-top: 10px;
+    display: none;
+}
+.error-message {
+    color: #dc3545;
+    font-weight: bold;
+    margin-top: 10px;
+    display: none;
+}
