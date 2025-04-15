@@ -1288,8 +1288,15 @@ function showHistoryRecords() {
         // 為每個試卷創建記錄表格
         for (const paperNumber in savedResults) {
             const paperRecords = savedResults[paperNumber];
-            const paperName = paperNames[paperNumber] || `試卷 ${paperNumber}`;
-            
+            let paperName = paperNames[paperNumber] || `試卷 ${paperNumber}`;
+    
+            // 對模擬考試進行特殊處理
+            if (paperNumber === "mock1") {
+                paperName = `<a href="#" mock="卷一模擬考試">卷一模擬考試</a>`;
+            } else if (paperNumber === "mock3") {
+                paperName = `<a href="#" mock3="卷三模擬考試">卷三模擬考試</a>`;
+            }
+
             modalContent += `
                 <div class="paper-history">
                     <h4>${paperName}</h4>
