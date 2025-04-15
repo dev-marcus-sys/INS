@@ -1297,6 +1297,12 @@ function showHistoryRecords() {
                 paperName = `<a href="#" mock3="卷三模擬考試">卷三模擬考試</a>`;
             }
 
+             // 按照日期排序記錄（從新到舊）
+             paperRecords.sort((a, b) => {
+                return new Date(b.timestamp) - new Date(a.timestamp);
+            });
+
+            
             modalContent += `
                 <div class="paper-history">
                     <h4>${paperName}</h4>
