@@ -80,7 +80,14 @@
             <div class="question-count-container">
                 <label for="question-count">題目數量：</label>
                 <input type="number" id="question-count" min="1" max="100" value="10">
+                <!-- 新增熱門題目勾選框 -->
+                <!-- 將熱門題目選項放在中間位置 -->
+                <div class="hot-questions-option">
+                    <input type="checkbox" id="hot-questions-only">
+                    <label for="hot-questions-only">只測試熱門題目</label>
+                </div>
             </div>
+
             <!-- 返回按鈕 -->
             <div class="center-buttons" style="margin-bottom: 20px;">
                 <button class="btn back-btn" id="back-to-welcome-btn">返回主頁</button>

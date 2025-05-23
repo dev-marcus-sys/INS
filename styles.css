@@ -745,3 +745,51 @@ h2 {
     width: 90%;
     max-width: 800px;
   }
+
+  /* 熱門題目標記樣式 */
+.hot-question {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 2px 6px;
+    font-size: 12px;
+    font-weight: bold;
+    color: white;
+    background-color: #e74c3c;
+    border-radius: 4px;
+    vertical-align: middle;
+}
+
+/* 設置選項區域樣式 */
+.settings-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    gap: 20px;
+}
+
+.question-count-setting {
+    display: flex;
+    align-items: center;
+}
+
+.question-count-setting input {
+    width: 60px;
+    margin-left: 10px;
+    padding: 5px;
+}
+
+.hot-questions-option {
+    display: flex;
+    align-items: center;
+}
+
+.hot-questions-option input[type="checkbox"] {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.hot-questions-option label {
+    cursor: pointer;
+}

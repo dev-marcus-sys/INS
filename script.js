@@ -495,7 +495,11 @@ function startQuiz(paperNumber, reuseQuestions = false) {
     // 設置當前試卷資訊
     currentPaperNumber = paperNumber;
     currentPaper = paperNames[paperNumber];
-    currentPaperInfo.textContent = `試卷：${currentPaper} (共${questionCount}題)`;
+
+    // 檢查是否只測試熱門題目
+    const hotQuestionsOnly = document.getElementById('hot-questions-only').checked;
+    let hotQuestionsText = hotQuestionsOnly ? " (僅熱門題目)" : "";
+    currentPaperInfo.textContent = `試卷：${currentPaper} (共${questionCount}題)${hotQuestionsText}`;
     
     if (!reuseQuestions) {
         // 從載入的試卷中獲取所有題目
@@ -512,8 +516,8 @@ function startQuiz(paperNumber, reuseQuestions = false) {
         // 檢查可用題目數量是否足夠
         const availableCount = Math.min(questionCount, allQuestions.length);
 
-        // 隨機選取用戶指定數量的題目
-        quizQuestions = getRandomQuestions(allQuestions, availableCount);
+        // 隨機選取用戶指定數量的題目，並考慮熱門題目過濾
+        quizQuestions = getRandomQuestions(allQuestions, availableCount, hotQuestionsOnly);
         // 保存原始題目集合
         originalQuizQuestions = [...quizQuestions];
     } else {
@@ -590,9 +594,29 @@ function generateQuiz(questions) {
 }
 
 // 從陣列中隨機選取指定數量的元素
-function getRandomQuestions(arr, n) {
+function getRandomQuestions(arr, n, hotQuestionsOnly = false) {
+    // 如果需要篩選熱門題目
+    let filteredArr = arr;
+    if (hotQuestionsOnly) {
+        filteredArr = arr.filter(question => question['*熱門題目'] === "*");
+        
+        // 如果篩選後沒有足夠的熱門題目，則發出警告並使用所有題目
+        if (filteredArr.length < n) {
+            alert(`警告：只有 ${filteredArr.length} 個熱門題目可用，少於您要求的 ${n} 題。將使用所有可用的熱門題目。`);
+            n = Math.min(n, filteredArr.length);
+            
+            // 如果完全沒有熱門題目，則使用所有題目
+            if (filteredArr.length === 0) {
+                alert("沒有找到熱門題目，將使用所有題目。");
+                filteredArr = arr;
+            }
+        }
+    }
+    
+    
     // 複製陣列，避免修改原陣列
-    const shuffled = [...arr];
+    
+    const shuffled = [...filteredArr];
     
     // Fisher-Yates 洗牌算法
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -783,8 +807,13 @@ function calculateResults() {
 
 // 顯示結果
 function showResults(results) {
+    
+    // 檢查是否只測試熱門題目
+    const hotQuestionsOnly = document.getElementById('hot-questions-only').checked;
+    let hotQuestionsText = hotQuestionsOnly ? " (僅熱門題目)" : "";
+    
     // 設置試卷資訊
-    resultPaperInfo.textContent = `試卷：${currentPaper}`;
+    resultPaperInfo.textContent = `試卷：${currentPaper}${hotQuestionsText}`;
     
     // 顯示分數
     scoreDisplay.textContent = `得分：${results.score}%`;
@@ -810,7 +839,7 @@ function showResults(results) {
             <div class="question-text">
                 <span class="question-number">${index + 1}.</span>
                 ${questionTextWithoutOptions.replace(/\n/g, '<br>')}
-                ${detail.question['*熱門題目'] ? '<span class="hot-question">[熱門題目]</span>' : ''}
+                ${detail.question['*熱門題目'] === "*" ? '<span class="hot-question">[熱門題目]</span>' : ''}
             </div>
         `;
 
@@ -947,6 +976,10 @@ document.getElementById('mock-exam-btn-paper3').addEventListener('click', () => 
 
 // 使用已載入的數據開始模擬考試
 function startMockExamWithLoadedData(config, paperName, paperCode) {
+    // 檢查是否只測試熱門題目
+    const hotQuestionsOnly = document.getElementById('hot-questions-only').checked;
+    let hotQuestionsText = hotQuestionsOnly ? " (僅熱門題目)" : "";
+    
     // 根據配置的比例從各章節選擇題目
     const selectedQuestions = [];
     
@@ -958,27 +991,40 @@ function startMockExamWithLoadedData(config, paperName, paperCode) {
         if (loadedPapers[chapter]) {
             for (const section in loadedPapers[chapter]) {
                 loadedPapers[chapter][section].forEach(question => {
-                    chapterQuestions.push({...question, chapter});
+                     // 如果選擇只測試熱門題目，則只添加熱門題目
+                     if (!hotQuestionsOnly || question['*熱門題目'] === "*") {
+                        chapterQuestions.push({...question, chapter});
+                    }
                 });
             }
         }
         
+        // 如果該章節沒有足夠的熱門題目，調整數量
+        let availableCount = Math.min(count, chapterQuestions.length);
+        if (chapterQuestions.length < count && hotQuestionsOnly) {
+            console.log(`警告：第${chapter}章只有 ${chapterQuestions.length} 個熱門題目，少於配置的 ${count} 題`);
+        }
+
         // 隨機選擇指定數量的題目
         if (chapterQuestions.length > 0) {
-            const selected = getRandomQuestions(chapterQuestions, Math.min(count, chapterQuestions.length));
+             const selected = getRandomQuestions(chapterQuestions, availableCount);
             selectedQuestions.push(...selected);
         }
     }
     
-    // 如果題目不足，提示用戶
-    if (selectedQuestions.length < config.totalQuestions) {
-        alert(`警告：可用題目不足${config.totalQuestions}題，僅能提供${selectedQuestions.length}題。`);
+     // 如果題目不足，提示用戶
+     if (selectedQuestions.length < config.totalQuestions) {
+        if (hotQuestionsOnly) {
+            alert(`警告：只有 ${selectedQuestions.length} 個熱門題目可用，少於模擬考試要求的 ${config.totalQuestions} 題。將使用所有可用的熱門題目。`);
+        } else {
+            alert(`警告：可用題目不足${config.totalQuestions}題，僅能提供${selectedQuestions.length}題。`);
+        }
     }
     
     // 設置當前試卷信息
     currentPaper = paperName;
     currentPaperNumber = paperCode;
-    currentPaperInfo.textContent = `試卷：${currentPaper} (共${selectedQuestions.length}題，及格分數：${config.passScore}題)`;
+    currentPaperInfo.textContent = `試卷：${currentPaper}${hotQuestionsText} (共${selectedQuestions.length}題，及格分數：${config.passScore}題)`;
     
     // 生成測驗
     quizQuestions = selectedQuestions;
